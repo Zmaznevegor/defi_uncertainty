@@ -120,7 +120,7 @@ def collect_data_cd(wp):
 
 
 # Page count is limited by news until 2016
-offsets = range(1, 1101)
+offsets = range(912, 1101)
 frames = []
 
 # Loop that goes through all the available pages
@@ -128,7 +128,7 @@ for i in offsets:
     time.sleep(randrange(5))
     print(i)
     cmc = requests.get(f'https://www.coindesk.com/wp-json/v1/articles/format/news/{i}?mode=list')
-    time.sleep(5)
+    time.sleep(3)
     webpage = cmc.json()
     df = collect_data_cd(webpage)
     frames.append(df)
@@ -171,3 +171,5 @@ webpage = cmc.json()
 # TODO: pkl data
 
 # TODO: check duplicates for the page 0 and page 1
+
+# TODO: VAR model for the relationship capture
