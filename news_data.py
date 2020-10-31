@@ -120,7 +120,7 @@ def collect_data_cd(wp):
 
 
 # Page count is limited by news until 2016
-offsets = range(912, 1101)
+offsets = range(0, 1101)
 frames = []
 
 # Loop that goes through all the available pages
@@ -138,20 +138,80 @@ result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/coindesk.csv', index=False)
 
 
-# TODO: The Block scrapper
-# Starts from page 1 and not 0 (!)
-cmc = requests.get(f'https://www.theblockcrypto.com/wp-json/v1/posts/homepage?page={359}&posts_per_page=20')
-webpage = cmc.json()
+# The Block scrapper
+def collect_data_block(wp):
+    date = []
+    content_text = []
 
-# TODO: Modern Consensus scrapper
-# 1 to 309
-cmc = requests.get(f'https://modernconsensus.com/page/309/')
-webpage = cmc.json()
+    # same range as posts per page
+    for j in wp['posts']:
+        date.append(j['published'])
+        body = re.sub('\<.+?\>|\<\/.+?\>', ' ', j['body'])  # clean code snippets
+        content_text.append(body)
 
-# TODO: Blockonomi scrapper
-# 1 to 123
-cmc = requests.get(f'https://blockonomi.com/news/page/{i}/')
-webpage = cmc.json()
+    df = pd.DataFrame(columns=['date', 'text'])
+
+    df['date'] = date
+    df['text'] = content_text
+
+    return df
+
+
+# Starts from page 1 and not 0 (!) to 359
+offsets = range(1, 359)
+frames = []
+
+# Loop that goes through all the available pages
+for i in offsets:
+    time.sleep(randrange(3))
+    print(i)
+    cmc = requests.get(f'https://www.theblockcrypto.com/wp-json/v1/posts/homepage?page={i}&posts_per_page=20')
+    time.sleep(3)
+    webpage = cmc.json()
+    df = collect_data_block(webpage)
+    frames.append(df)
+
+# Combining and exporting all the results
+result = pd.concat(frames, ignore_index=True)
+result.to_csv(data_folder + '/block.csv', index=False)
+
+
+# Blockonomi scrapper
+def collect_data_blockonomi(wp):
+    date = []
+    content_text = []
+
+    # same range as posts per page
+    for j in wp:
+        date.append(j['date'])
+        content = re.sub('\<.+?\>|\<\/.+?\>', ' ', j['content']['rendered'])  # clean code snippets
+        content_text.append(content)
+
+    df = pd.DataFrame(columns=['date', 'text'])
+
+    df['date'] = date
+    df['text'] = content_text
+
+    return df
+
+
+# 1 to total of 163
+offsets = range(1, 163)
+frames = []
+
+# Go through all the pages
+for i in offsets:
+    time.sleep(randrange(3))
+    print(i)
+    cmc = requests.get(f'https://blockonomi.com/wp-json/wp/v2/posts?page={i}&order=desc&orderby=date&per_page=25')
+    time.sleep(3)
+    webpage = cmc.json()
+    df = collect_data_blockonomi(webpage)
+    frames.append(df)
+
+# Combining and exporting all the results
+result = pd.concat(frames, ignore_index=True)
+result.to_csv(data_folder + '/blockonomi.csv', index=False)
 
 # TODO: News Bitcoin scrapper
 # 1 to 123
@@ -167,8 +227,6 @@ webpage = cmc.json()
 # Pages 1 to 49
 cmc = requests.get(f'https://www.hackernoon.com/tagged/decentralization?page={i}')
 webpage = cmc.json()
-
-# TODO: pkl data
 
 # TODO: check duplicates for the page 0 and page 1
 
