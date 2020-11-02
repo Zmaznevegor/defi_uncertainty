@@ -196,7 +196,7 @@ def collect_data_blockonomi(wp):
 
 
 # 1 to total of 163
-offsets = range(1, 163)
+offsets = range(1, 164)
 frames = []
 
 # Go through all the pages
@@ -213,15 +213,48 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/blockonomi.csv', index=False)
 
-# TODO: News Bitcoin scrapper
+# TODO: News Bitcoin scrapper !
 # 1 to 123
-cmc = requests.get(f'https://news.bitcoin.com/page/1375/')
+cmc = requests.get(f'https://news.bitcoin.com/page/1377/')
 webpage = cmc.json()
 
-# TODO: Crypto News Flash scrapper
-# 1 to 123
-cmc = requests.get(f'https://www.crypto-news-flash.com/news/page/239/')
-webpage = cmc.json()
+
+# Crypto News Flash scrapper
+def collect_data_cnf(wp):
+    date = []
+    content_text = []
+
+    # same range as posts per page
+    for j in wp:
+        date.append(j['date'])
+        content = re.sub('\<.+?\>|\<\/.+?\>', ' ', j['content']['rendered'])  # clean code snippets
+        content_text.append(content)
+
+    df = pd.DataFrame(columns=['date', 'text'])
+
+    df['date'] = date
+    df['text'] = content_text
+
+    return df
+
+
+# 1 to 106
+offsets = range(106, 107)
+frames = []
+
+# Go through all the pages
+for i in offsets:
+    time.sleep(randrange(3))
+    print(i)
+    cmc = requests.get(f'https://www.crypto-news-flash.com/wp-json/wp/v2/posts?order=desc&orderby=date&per_page=25&page={i}')
+    time.sleep(3)
+    webpage = cmc.json()
+    df = collect_data_cnf(webpage)
+    frames.append(df)
+
+# Combining and exporting all the results
+result = pd.concat(frames, ignore_index=True)
+result.to_csv(data_folder + '/cnf.csv', index=False)
 
 # TODO: Hackenoon scrapper
 # Pages 1 to 49
