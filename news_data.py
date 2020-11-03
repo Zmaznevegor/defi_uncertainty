@@ -11,7 +11,7 @@ import re
 # Data wrangling
 import pandas as pd
 import numpy as np
-import dill
+from os import listdir
 
 # Define folder
 data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
