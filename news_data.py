@@ -256,11 +256,14 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/cnf.csv', index=False)
 
-# TODO: Hackenoon scrapper
-# Pages 1 to 49
-cmc = requests.get(f'https://www.hackernoon.com/tagged/decentralization?page={i}')
-webpage = cmc.json()
+# Combining and cleaning all the data
+frames = []
+for i in listdir(r'data'):
+    frames.append(pd.read_csv(f'data/{i}'))
 
-# TODO: check duplicates for the page 0 and page 1
-
-# TODO: VAR model for the relationship capture
+result = pd.concat(frames, ignore_index=True)
+result = result.sort_values("date", ascending=False)
+result = result.dropna(subset=['text'])
+result = result[result.text != 'Deleted']
+result.drop_duplicates(keep=False,inplace=True)
+result.to_csv(data_folder + '/all_articles.csv', index=False)
