@@ -5,6 +5,9 @@ import json
 import time
 from random import randrange
 
+# HTML scrapper
+from selenium import webdriver
+
 # Basic text cleaning
 import re
 
@@ -12,6 +15,9 @@ import re
 import pandas as pd
 import numpy as np
 from os import listdir
+
+# Aggregator API
+from crypto_news_api import CryptoControlAPI
 
 # Define folder
 data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
@@ -176,8 +182,8 @@ result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/block.csv', index=False)
 
 
-# Blockonomi scrapper
-def collect_data_blockonomi(wp):
+# JSON scrapper with rendered content
+def collect_data_json(wp):
     date = []
     content_text = []
 
@@ -206,40 +212,17 @@ for i in offsets:
     cmc = requests.get(f'https://blockonomi.com/wp-json/wp/v2/posts?page={i}&order=desc&orderby=date&per_page=25')
     time.sleep(3)
     webpage = cmc.json()
-    df = collect_data_blockonomi(webpage)
+    df = collect_data_json(webpage)
     frames.append(df)
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/blockonomi.csv', index=False)
 
-# TODO: News Bitcoin scrapper !
-# 1 to 123
-cmc = requests.get(f'https://news.bitcoin.com/page/1377/')
-webpage = cmc.json()
-
 
 # Crypto News Flash scrapper
-def collect_data_cnf(wp):
-    date = []
-    content_text = []
-
-    # same range as posts per page
-    for j in wp:
-        date.append(j['date'])
-        content = re.sub('\<.+?\>|\<\/.+?\>', ' ', j['content']['rendered'])  # clean code snippets
-        content_text.append(content)
-
-    df = pd.DataFrame(columns=['date', 'text'])
-
-    df['date'] = date
-    df['text'] = content_text
-
-    return df
-
-
 # 1 to 106
-offsets = range(106, 107)
+offsets = range(1, 107)
 frames = []
 
 # Go through all the pages
@@ -249,12 +232,54 @@ for i in offsets:
     cmc = requests.get(f'https://www.crypto-news-flash.com/wp-json/wp/v2/posts?order=desc&orderby=date&per_page=25&page={i}')
     time.sleep(3)
     webpage = cmc.json()
-    df = collect_data_cnf(webpage)
+    df = collect_data_json(webpage)
     frames.append(df)
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/cnf.csv', index=False)
+
+# News btc sraper
+# 1 to 975
+offsets = range(1, 976)
+frames = []
+
+# Go through all the pages
+for i in offsets:
+    time.sleep(randrange(3))
+    print(i)
+    cmc = requests.get(f'https://www.newsbtc.com/wp-json/wp/v2/posts?order=desc&orderby=date&per_page=25&page={i}')
+    time.sleep(3)
+    webpage = cmc.json()
+    df = collect_data_json(webpage)
+    frames.append(df)
+
+# Combining and exporting all the results
+result = pd.concat(frames, ignore_index=True)
+result.to_csv(data_folder + '/newsbtc.csv', index=False)
+
+# TODO: cryptoslate srapper
+# 1 to 206
+offsets = range(1, 207)
+frames = []
+
+# Go through all the pages
+for i in offsets:
+    time.sleep(randrange(3))
+    print(i)
+    cmc = requests.get(f'https://cryptoslate.com/wp-json/wp/v2/posts?order=desc&orderby=date&per_page=25&page={i}')
+    time.sleep(3)
+    webpage = cmc.json()
+    df = collect_data_json(webpage)
+    frames.append(df)
+
+# Combining and exporting all the results
+result = pd.concat(frames, ignore_index=True)
+result.to_csv(data_folder + '/slate.csv', index=False)
+
+# TODO: cryptonews html srapper
+
+# TODO: ambcrypto html srapper
 
 # Combining and cleaning all the data
 frames = []
@@ -267,3 +292,26 @@ result = result.dropna(subset=['text'])
 result = result[result.text != 'Deleted']
 result.drop_duplicates(keep=False,inplace=True)
 result.to_csv(data_folder + '/all_articles.csv', index=False)
+
+# TODO: Check aggregators
+# Aggregating news form the crypto control
+api = CryptoControlAPI("0c6152bf91d882627131c56ea6cc24fb")
+latest= api.getLatestNews("en")
+
+
+driver = webdriver.Firefox(r'/home/zmaznevegor/geckodriver/geckodriver-v0.27.0-linux64/geckodriver')
+
+products=[] #List to store name of the product
+prices=[] #List to store price of the product
+ratings=[] #List to store rating of the product
+driver.get("<a href="https://www.flipkart.com/laptops/">https://www.flipkart.com/laptops/</a>~buyback-guarantee-on-laptops-/pr?sid=6bo%2Cb5g&amp;amp;amp;amp;amp;amp;amp;amp;amp;uniq")
+
+content = driver.page_source
+soup = BeautifulSoup(content)
+for a in soup.findAll('a',href=True, attrs={'class':'_31qSD5'}):
+name=a.find('div', attrs={'class':'_3wU53n'})
+price=a.find('div', attrs={'class':'_1vC4OE _2rQ-NK'})
+rating=a.find('div', attrs={'class':'hGSR34 _2beYZw'})
+products.append(name.text)
+prices.append(price.text)
+ratings.append(rating.text)
