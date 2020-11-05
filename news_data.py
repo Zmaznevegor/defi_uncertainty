@@ -258,7 +258,7 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/newsbtc.csv', index=False)
 
-# TODO: cryptoslate srapper
+# Cryptoslate srapper
 # 1 to 206
 offsets = range(1, 207)
 frames = []
@@ -277,41 +277,57 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/slate.csv', index=False)
 
-# TODO: cryptonews html srapper
+# Cryptonews HTML srapper
+driver = webdriver.Firefox()
+
+# Load more articles from the general news page
+driver.get('https://cryptonews.com/news/')
+
+while True:
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(1)
+    driver.find_element_by_link_text("Load more news...").click()
+
+# Collect all the links
+list = driver.find_elements_by_xpath('//*[@id="body-news"]//div[contains(@class, "app")]//section[contains(@class, "cn-articles-list")]//div[contains(@id, "newsContainer")]//div[contains(@class, "cn-tile article")]//div[contains(@class, "props")]/h4/a')
+
+links=[]
+for i in list:
+    links.append(i.get_attribute('href'))
+
+# Get text from the article
+texts = []
+date = []
+for i in links:
+    driver.get(i)
+    article = driver.find_element_by_xpath('//*[@id="body-news"]//div[contains(@class, "app")]/article//div[contains(@class, "content")]//div[contains(@class, "cn-content")]').text
+    time_published = driver.find_element_by_xpath('//*[@id="body-news"]//div[contains(@class, "app")]/article//div[contains(@class, "content")]//div[contains(@class, "cn-props-panel")]//div[contains(@class, "time")]/time').get_attribute("datetime")
+    texts.append(article)
+    date.append(time_published)
+
+# Stop webdriver
+driver.quit()
+
+# Combine as dataframe
+result = pd.DataFrame(columns=['date', 'text'])
+result['date'] = date
+result['text'] = texts
+
+result.to_csv(data_folder + '/cryptonews.csv', index=False)
 
 # TODO: ambcrypto html srapper
+# TODO: cointelegraph html srapper
+# TODO: new bitcoin html srapper
 
-# Combining and cleaning all the data
+# Combine all dataframes into one
 frames = []
 for i in listdir(r'data'):
     frames.append(pd.read_csv(f'data/{i}'))
 
+# Sort data and clean for duplicates and deleted news
 result = pd.concat(frames, ignore_index=True)
 result = result.sort_values("date", ascending=False)
 result = result.dropna(subset=['text'])
 result = result[result.text != 'Deleted']
 result.drop_duplicates(keep=False,inplace=True)
 result.to_csv(data_folder + '/all_articles.csv', index=False)
-
-# TODO: Check aggregators
-# Aggregating news form the crypto control
-api = CryptoControlAPI("0c6152bf91d882627131c56ea6cc24fb")
-latest= api.getLatestNews("en")
-
-
-driver = webdriver.Firefox(r'/home/zmaznevegor/geckodriver/geckodriver-v0.27.0-linux64/geckodriver')
-
-products=[] #List to store name of the product
-prices=[] #List to store price of the product
-ratings=[] #List to store rating of the product
-driver.get("<a href="https://www.flipkart.com/laptops/">https://www.flipkart.com/laptops/</a>~buyback-guarantee-on-laptops-/pr?sid=6bo%2Cb5g&amp;amp;amp;amp;amp;amp;amp;amp;amp;uniq")
-
-content = driver.page_source
-soup = BeautifulSoup(content)
-for a in soup.findAll('a',href=True, attrs={'class':'_31qSD5'}):
-name=a.find('div', attrs={'class':'_3wU53n'})
-price=a.find('div', attrs={'class':'_1vC4OE _2rQ-NK'})
-rating=a.find('div', attrs={'class':'hGSR34 _2beYZw'})
-products.append(name.text)
-prices.append(price.text)
-ratings.append(rating.text)
