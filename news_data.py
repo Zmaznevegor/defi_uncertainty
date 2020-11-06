@@ -340,9 +340,39 @@ result['text'] = texts
 
 result.to_csv(data_folder + '/newsbitcoin.csv', index=False)
 
+# Ambcrypto html srapper
+# Load the page all the way through
+driver.get('https://eng.ambcrypto.com/category/news/')
 
-# TODO: ambcrypto html srapper
+while True:
+    driver.execute_script("window.scrollTo(1, document.body.scrollHeight);")
+    time.sleep(1)
+    driver.find_element_by_xpath('//a[contains(@class, "mvp-inf-more-but")]').click()
 
+# Collect all the article links
+list = driver.find_elements_by_xpath('//li[contains(@class, "mvp-blog-story-wrap left relative infinite-post")]/a')
+
+links=[]
+for i in list:
+    links.append(i.get_attribute('href'))
+
+# Collect all the texts and dates
+texts = []
+date = []
+for i in links:
+    driver.get(i)
+    time.sleep(1)
+    article = driver.find_elements_by_xpath('//div[contains(@id, "mvp-content-main")]')[0].text
+    time_published = driver.find_elements_by_xpath('//span[contains(@class, "mvp-post-date updated")]/time')[0].get_attribute("datetime")
+    texts.append(article)
+    date.append(time_published)
+
+# Combine as dataframe
+result = pd.DataFrame(columns=['date', 'text'])
+result['date'] = date
+result['text'] = texts
+
+result.to_csv(data_folder + '/ambcrpyto.csv', index=False)
 
 # Cointelegraph html srapper
 # Load the page all the way through
