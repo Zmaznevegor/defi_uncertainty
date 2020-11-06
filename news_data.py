@@ -327,6 +327,7 @@ texts = []
 date = []
 for i in links:
     driver.get(i)
+    time.sleep(1)
     article = driver.find_elements_by_xpath('//body//div[contains(@id, "td-outer-wrap")]//div[contains(@id, "bn-ajax-load-more")]//div[contains(@id, "ajax-load-more")]//div[contains(@class, "alm-listing alm-ajax")]//div[contains(@class, "alm-single-post")]//main[contains(@class, "article full-grid")]//article[contains(@class, "article__body")]')[0].text
     time_published = driver.find_elements_by_xpath('//div[contains(@class, "td_block_inner")]//div[contains(@class, "td-block-span12")]//div[contains(@class, "td_module_1 td_module_wrap")]//div[contains(@class, "td-module-meta-info")]//span[contains(@class, "td-post-date")]//time[contains(@class, "entry-date updated td-module-date")]')[0].get_attribute("datetime")
     texts.append(article)
@@ -341,7 +342,41 @@ result.to_csv(data_folder + '/newsbitcoin.csv', index=False)
 
 
 # TODO: ambcrypto html srapper
-# TODO: cointelegraph html srapper
+
+
+# Cointelegraph html srapper
+# Load the page all the way through
+driver.get('https://cointelegraph.com/')
+
+while True:
+    driver.execute_script("window.scrollTo(1, document.body.scrollHeight);")
+    time.sleep(1)
+    driver.find_element_by_xpath('//button[contains(@class, "btn posts-listing__more-btn")]').click()
+
+# Collect all the relevant links
+list = driver.find_elements_by_xpath('//li[contains(@class, "posts-listing__item")]/div/article/header/a')
+
+links=[]
+for i in list:
+    links.append(i.get_attribute('href'))
+
+# Collect texts and dates
+texts = []
+date = []
+for i in links:
+    driver.get(i)
+    time.sleep(1)
+    article = driver.find_elements_by_xpath('//div[contains(@class, "post-content")]')[0].text
+    time_published = driver.find_elements_by_xpath('//div[contains(@class, "post-meta__publish-date")]/time')[0].get_attribute("datetime")
+    texts.append(article)
+    date.append(time_published)
+
+# Combine as dataframe
+result = pd.DataFrame(columns=['date', 'text'])
+result['date'] = date
+result['text'] = texts
+
+result.to_csv(data_folder + '/cointelegraph.csv', index=False)
 
 # Stop webdriver
 driver.quit()
