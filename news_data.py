@@ -327,7 +327,6 @@ texts = []
 date = []
 for i in links:
     driver.get(i)
-    time.sleep(1)
     article = driver.find_elements_by_xpath('//body//div[contains(@id, "td-outer-wrap")]//div[contains(@id, "bn-ajax-load-more")]//div[contains(@id, "ajax-load-more")]//div[contains(@class, "alm-listing alm-ajax")]//div[contains(@class, "alm-single-post")]//main[contains(@class, "article full-grid")]//article[contains(@class, "article__body")]')[0].text
     time_published = driver.find_elements_by_xpath('//div[contains(@class, "td_block_inner")]//div[contains(@class, "td-block-span12")]//div[contains(@class, "td_module_1 td_module_wrap")]//div[contains(@class, "td-module-meta-info")]//span[contains(@class, "td-post-date")]//time[contains(@class, "entry-date updated td-module-date")]')[0].get_attribute("datetime")
     texts.append(article)
