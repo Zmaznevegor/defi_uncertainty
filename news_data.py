@@ -344,9 +344,9 @@ result.to_csv(data_folder + '/newsbitcoin.csv', index=False)
 driver.get('https://eng.ambcrypto.com/category/news/')
 
 while True:
-    driver.execute_script("window.scrollTo(1, document.body.scrollHeight);")
-    time.sleep(1)
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     driver.find_element_by_xpath('//a[contains(@class, "mvp-inf-more-but")]').click()
+    time.sleep(1)
 
 # Collect all the article links
 list = driver.find_elements_by_xpath('//li[contains(@class, "mvp-blog-story-wrap left relative infinite-post")]/a')
@@ -376,15 +376,6 @@ result.to_csv(data_folder + '/ambcrpyto.csv', index=False)
 # Cointelegraph html srapper
 # Load the page all the way through
 driver.get('https://cointelegraph.com/')
-
-while True:
-    driver.execute_script("window.scrollTo(1, document.body.scrollHeight);")
-    time.sleep(1)
-    driver.find_element_by_xpath('//button[contains(@class, "btn posts-listing__more-btn")]').click()
-
-# Collect all the relevant links
-list = driver.find_elements_by_xpath('//li[contains(@class, "posts-listing__item")]/div/article/header/a')
-
 links=[]
 for i in list:
     links.append(i.get_attribute('href'))
