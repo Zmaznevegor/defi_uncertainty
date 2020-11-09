@@ -15,6 +15,7 @@ import re
 import pandas as pd
 import numpy as np
 from os import listdir
+import datetime
 
 # Aggregator API
 from crypto_news_api import CryptoControlAPI
@@ -404,12 +405,27 @@ driver.quit()
 # Combine all dataframes into one
 frames = []
 for i in listdir(r'data'):
-    frames.append(pd.read_csv(f'data/{i}'))
+    df = pd.read_csv(f'data/{i}')
+    source = ''.join(i.split())[:-4]
+    df['source'] = source
+    if source == 'newsbitcoin':
+        df['date'][0:5] = 'Nov 5, 2020'
+        df['date'][5:10] = 'Nov 4, 2020'
+        df['date'][10:15] = 'Nov 3, 2020'
+        df['date'][15:21] = 'Nov 2, 2020'
+        df['date'][21:24] = 'Nov 1, 2020'
+    df.date = pd.to_datetime(df.date, infer_datetime_format=True, utc = True)
+    frames.append(df)
+
 
 # Sort data and clean for duplicates and deleted news
 result = pd.concat(frames, ignore_index=True)
+result['date'] = result['date'].dt.date
 result = result.sort_values("date", ascending=False)
 result = result.dropna(subset=['text'])
-result = result[result.text != 'Deleted']
-result.drop_duplicates(keep=False,inplace=True)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+
 result.to_csv(data_folder + '/all_articles.csv', index=False)
+
+# Number of articles per source per day
+result.groupby(result.date).source.value_counts()
