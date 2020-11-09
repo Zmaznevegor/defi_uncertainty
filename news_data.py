@@ -432,3 +432,27 @@ result.to_csv(data_folder + '/all_articles.csv', index=False)
 
 # Number of articles per source per day
 result.groupby(result.date).source.value_counts()
+
+# TVL data collection
+# Maker dataframe
+time = []
+tvlusd = []
+tvleth = []
+dai = []
+
+cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project=maker&resolution=history')
+webpage = cmc.json()
+
+for i in webpage:
+    time.append(datetime.fromtimestamp(i['timestamp']))
+    tvlusd.append(i['tvlUSD'])
+    tvleth.append(i['tvlETH'])
+    dai.append(i['DAI'])
+
+result = pd.DataFrame(columns=['time', 'tvlusd', 'tvleth', 'dai'])
+result['time'] = time
+result['tvlusd'] = tvlusd
+result['tvleth'] = tvleth
+result['dai'] = dai
+
+result.to_csv(data_folder + '/tvl_makerdai.csv', index=False)
