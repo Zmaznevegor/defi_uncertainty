@@ -33,7 +33,6 @@ data[which(data$source=="cryptonews")][grep("Learn more:|\\n_____\\n",  data[whi
 
 # Сheck ambcrypto articles for junk
 footer <- data[which(data$source=="ambcrpyto")][grep("Did you like the article.\\nYes\\nNo",  data[which(data$source=="ambcrpyto")]$text)]
-
 data[which(data$source=="ambcrpyto")][grep("Did you like the article.\\nYes\\nNo",  data[which(data$source=="ambcrpyto")]$text)]$text<- gsub("(.+?)Did you like the article.+", "\\1", data[which(data$source=="ambcrpyto")][grep("Did you like the article.\\nYes\\nNo",  data[which(data$source=="ambcrpyto")]$text)]$text)
 
 misc <- data[which(data$source=="ambcrpyto")][grep("This is a paid post and should not be considered as news",  data[which(data$source=="ambcrpyto")]$text, ignore.case = T)]
@@ -95,3 +94,5 @@ defi_m <- data[defi,] %>%
 ggplot(defi_m, aes(x = month, y=n, group = source)) + 
   geom_point(defi,aes(color=source, size = n))+
   scale_y_continuous(limits = c(0, 1100))
+
+write.csv(data, file = "data/all_articles.csv")
