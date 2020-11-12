@@ -15,7 +15,7 @@ import re
 import pandas as pd
 import numpy as np
 from os import listdir
-import datetime
+from datetime import datetime
 
 # Aggregator API
 from crypto_news_api import CryptoControlAPI
@@ -433,26 +433,39 @@ result.to_csv(data_folder + '/all_articles.csv', index=False)
 # Number of articles per source per day
 result.groupby(result.date).source.value_counts()
 
+
 # TVL data collection
-# Maker dataframe
-time = []
-tvlusd = []
-tvleth = []
-dai = []
+def collect_tvl(wp):
+    time = []
+    tvlusd = []
+    tvleth = []
+    dai = []
 
-cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project=maker&resolution=history')
-webpage = cmc.json()
+    for i in wp:
+        time.append(datetime.fromtimestamp(i['timestamp']))
+        tvlusd.append(i['tvlUSD'])
+        tvleth.append(i['tvlETH'])
+        dai.append(i['DAI'])
 
-for i in webpage:
-    time.append(datetime.fromtimestamp(i['timestamp']))
-    tvlusd.append(i['tvlUSD'])
-    tvleth.append(i['tvlETH'])
-    dai.append(i['DAI'])
+    result = pd.DataFrame(columns=['time', 'tvlusd', 'tvleth', 'dai'])
+    result['time'] = time
+    result['tvlusd'] = tvlusd
+    result['tvleth'] = tvleth
+    result['dai'] = dai
 
-result = pd.DataFrame(columns=['time', 'tvlusd', 'tvleth', 'dai'])
-result['time'] = time
-result['tvlusd'] = tvlusd
-result['tvleth'] = tvleth
-result['dai'] = dai
+    return result
 
-result.to_csv(data_folder + '/tvl_makerdai.csv', index=False)
+
+# Collect TVL data
+frames = []
+defi = ['maker', 'uniswap', 'compound']
+
+for i in defi:
+    cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project={i}&resolution=history')
+    webpage = cmc.json()
+    result = collect_tvl(webpage)
+    result['token'] = i
+    frames.append(result)
+
+result = pd.concat(frames, ignore_index=True)
+result.to_csv(data_folder + '/tvl_data.csv', index=False)
