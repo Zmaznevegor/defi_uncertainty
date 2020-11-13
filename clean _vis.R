@@ -95,4 +95,4 @@ ggplot(defi_m, aes(x = month, y=n, group = source)) +
   geom_point(defi,aes(color=source, size = n))+
   scale_y_continuous(limits = c(0, 1100))
 
-write.csv(data, file = "data/all_articles.csv")
+write.csv(data, file = "data/all_articles.csv", row.names = F)
