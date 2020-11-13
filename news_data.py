@@ -17,9 +17,6 @@ import numpy as np
 from os import listdir
 from datetime import datetime
 
-# Aggregator API
-from crypto_news_api import CryptoControlAPI
-
 # Define folder
 data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
 
@@ -28,19 +25,16 @@ data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
 def collect_data_decrypt(wp):
     date = []
     content_text = []
-    category = []
 
     # same range as posts per page
     for j in range(0, len(wp)):
         date.append(wp[j]['date'])
         content_text.append(wp[j]['custom_fields']['content_text'])
-        # category.append(webpage[j]['custom_fields']['primary_category']['slug'])
 
     df = pd.DataFrame(columns=['date', 'text'])
 
     df['date'] = date
     df['text'] = content_text
-    # df['category'] = category
 
     return df
 
