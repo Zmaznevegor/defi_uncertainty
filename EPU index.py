@@ -21,6 +21,19 @@ data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
 
 data = pd.read_csv(data_folder + '/all_articles.csv')
 
+# Naive base method
+# Construct base matching parameters for the articles
+# TODO: make monthly count of EPU-addressed news
+# TODO: scale data
+# TODO: standardize and normalize
+# TODO: randomly split data for the experiments
+
+
+
+# SVM Method
+# TODO: randomly select 500 articles related to DeFi
+# TODO: label training and test as relevant/not based on the text
+# TODO: clean and lemmarize the text
 # NLTK Stop words
 stop = stopwords.words('english')
 exclude = set(string.punctuation)
@@ -51,20 +64,13 @@ def lemmatize(text):
 
 data['clean_text'] = data.text.apply(clean)  # Clean texts
 data['lemmatized_text'] = data.clean_text.apply(lemmatize) # lemmatize texts
-
-# TODO: randomly split data for the experiments
-# TODO: construct matching parameters for the articles
-# TODO: randomly select 500 articles related to DeFi
-# TODO: label training and test as relevant/not based on the text
-# TODO: clean and lemmarize the text
 # TODO: construct tf-idf
 # TODO: run SVM
 # TODO: pool-based active learner
 # TODO: 10K CV with AUC
 # TODO: Check most discriminant words
-# TODO: make monthly count of EPU-addressed news
-# TODO: scale data
-# TODO: standardize and normalize
+
+# Extend dictionary methodology
 
 
 # Pickle environment
