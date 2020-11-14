@@ -1,11 +1,15 @@
-# Load libraries and data ----
+# Load libraries----
 library(dplyr)
 library(ggplot2)
 library(data.table)
 library(zoo)
+library(patchwork)
 
 theme_set(theme_minimal())
+
+# Load data ----
 data <- fread("data/all_articles.csv")
+tvl <- fread("data/tvl_data.csv")
 
 # Fixes for the news bitcoin data
 # Articles that do not have the end line: sponsored and ads that should be dropped
@@ -43,6 +47,9 @@ data  <-  data %>%
 footer <- data[which(data$source=="cointelegraph")][grep("Subscribe to the Finance Redefined newsletter",  data[which(data$source=="cointelegraph")]$text)]
 data[which(data$source=="cointelegraph")][grep("Subscribe to the Finance Redefined newsletter",  data[which(data$source=="cointelegraph")]$text)]$text <- gsub("(.+?)Subscribe to the Finance Redefined newsletter.+", "\\1", data[which(data$source=="cointelegraph")][grep("Subscribe to the Finance Redefined newsletter",  data[which(data$source=="cointelegraph")]$text)]$text)
 
+# Export clean data
+write.csv(data, file = "data/all_articles.csv", row.names = F)
+
 # Check posts per month by media----
 posts_per_m <- data %>% 
   mutate(month = as.yearmon(data$date)) %>% 
@@ -60,39 +67,48 @@ ggplot(posts_per_m[which(posts_per_m$source=="ambcrpyto"), ], aes(x = month, y=n
   geom_line(aes(color=source))+
   scale_y_continuous(limits = c(0, 1100))
 
-
-defi_words = " defi | decentralized finance| decentralised finance"
+# Naive base method
+defi_words = " defi | decentrali(z|s)ed finance"
 defi_service_words = " decentralized borrow| decentralized lend| stablecoin| decentralised exchange| decentralized exchange| DEX | yield farm| DEXes| decentralized oracle| oracle"
 
 defi = grep(defi_words, data$text, ignore.case = T)
 defi_service = grep(defi_service_words, data$text, ignore.case = T)
 all_defi <- union(defi,defi_service)
 
-# First mention 
-max(defi)
+defi <- data[defi,]
 
-data$text[94051]
+defi_reg <-  grep(" regulat", defi$text, ignore.case = T)
+defi_reg <- defi[defi_reg,]
 
-# All DeFi in media
-defi_per_m <- data[all_defi,] %>% 
-  mutate(month = as.yearmon(.$date)) %>% 
+defi_unc <-  grep(" uncertain", defi_reg$text, ignore.case = T)
+
+epu <- defi_reg[defi_unc,]
+
+epu_m <- epu %>% 
+  mutate(month = as.yearmon(epu$date)) %>% 
   group_by(month)%>%
-  arrange(month) %>% 
-  count(source)
+  summarize(n=n())
 
-ggplot(defi_per_m, aes(x = month, y=n, group = source)) + 
-  geom_line(aes(color=source))+
-  scale_y_continuous(limits = c(0, 1100))
+ggplot(data = epu_m, aes(x=month, y =n))+
+  geom_line()
 
-# Just defi direct mentions
-defi_m <- data[defi,] %>% 
-  mutate(month = as.yearmon(.$date)) %>% 
-  group_by(month)%>%
-  arrange(month) %>% 
-  count(source)
+mtcars %>% 
+  arrange(desc(mpg)) %>% 
+  group_by(cyl) %>% slice(1:2)
 
-ggplot(defi_m, aes(x = month, y=n, group = source)) + 
-  geom_point(defi,aes(color=source, size = n))+
-  scale_y_continuous(limits = c(0, 1100))
+maker <- tvl %>% 
+  mutate(month = as.yearmon(tvl$time)) %>% 
+  filter(token == "maker") %>% 
+  group_by(month) %>% 
+  slice(1)
+  
+ggplot(data = maker, aes(x=time, y =tvleth))+
+  geom_line()
 
-write.csv(data, file = "data/all_articles.csv", row.names = F)
+p1 <- ggplot() + 
+  geom_line(data=maker, aes(x=month, y=tvleth), color='red')
+
+p2 <-ggplot() + geom_line(data=epu_m, aes(x=month, y=n), color='blue')
+
+
+p1+p2
