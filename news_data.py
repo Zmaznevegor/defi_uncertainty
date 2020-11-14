@@ -462,4 +462,6 @@ for i in defi:
     frames.append(result)
 
 result = pd.concat(frames, ignore_index=True)
+result.time = pd.to_datetime(result.time, infer_datetime_format=True, utc=True)
+result.time = result.time.dt.date
 result.to_csv(data_folder + '/tvl_data.csv', index=False)
