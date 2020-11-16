@@ -1,4 +1,4 @@
-# Data
+# Data wrangling
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,24 +10,36 @@ import string
 import re
 import spacy
 
-import gensim
-from gensim import corpora, models
-from gensim.models import CoherenceModel
-from gensim.utils import simple_preprocess
-
+# Remove warnings
+import warnings
+warnings.filterwarnings('ignore')
 
 # Define folder and load data
 data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
-
 data = pd.read_csv(data_folder + '/all_articles.csv')
+
 
 # Naive base method
 # Construct base matching parameters for the articles
-# TODO: make monthly count of EPU-addressed news
+def match_df(grep, case_sense:bool = False, dataframe=data):
+    grep_bool = dataframe.text.str.contains(grep, case=case_sense, regex=True)
+    df = dataframe.loc[grep_bool[grep_bool==True].index,].reset_index(drop=True)
+    return df
+
+
+defi = match_df(grep=' defi |decentrali(z|s)ed finance')
+defi_regulation = match_df(grep=' regulat| supreme court| government| European Commission|legislati| European Central Bank|\bjurisdiction\b|\bSEC\b|\bcompliance\b', dataframe=defi)
+uncertainty_words = '\bapparently\b|\bapparent\b|\bindication\b|\bcould\b|\bpossible\b|\bevasive\b|uncertain|\bpotential\b|\bquestionably\b|doubt|suspect|putative|would|not easily|no notion|\blikely\b|either|\bassume\b|\bhope\b|\bthink\b|\bseem\b|\bperhaps\b|\belusive\b|\bunsure\b|\bpotentially|\bappear\b|\bdoubtful\b|\bsuspecting\b|\bprobably\b|\bmay\b|\bassumption\b|\bhypothesis\|\bpotential\b|\bpossibility\b|\bunstable\b|\bunknown\b|\bpreferential\b|\bspeculate\b|\bpresumably\b|\bprobable\b|\bhypothetical\b|\bpotentially\b|\bunsettled\b|\bunfamiliar\b|\bpreferentially\b|\bspeculation\b|\bsuppose\b|\bsupposedly\b|\bmaybe\b|\bseemingly\b|\bunclear\b|\bimprobable\b|\bestimate\b|\bsuggest\b|\bexpect\b|\bpretended\b|\bperchance\b|\buncertainty\b|\bpossibly\b|\bostensibly\b|\bvague\b|\bimprobably\b|\bquestionable\b|\bdoubt\b|\bexpecting\b|\bsupposed\b|\bmight\b'
+epu_base = match_df(grep=uncertainty_words, dataframe=defi_regulation)
+
+# Make monthly count of EPU-addressed news
+epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%m')
+epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
+epu_month.plot.line(x='date', y='text')
+
 # TODO: scale data
 # TODO: standardize and normalize
 # TODO: randomly split data for the experiments
-
 
 
 # SVM Method
