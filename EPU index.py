@@ -37,10 +37,16 @@ epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%m')
 epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
 epu_month.plot.line(x='date', y='text')
 
-# TODO: scale data
-# TODO: standardize and normalize
-# TODO: randomly split data for the experiments
+# Scale data
+data.date = pd.to_datetime(data.date).dt.strftime('%Y-%m')
+texts_per_media = data.groupby(by=["date", "source"]).count().reset_index()
+unc_media = epu_base.groupby(by=["date", "source"]).count().reset_index()
 
+scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='right')
+scale = scale.rename(columns={'text_x':'total', 'text_y':'uncertain'})
+scale['scaled'] = scale.uncertain/scale.total
+
+# TODO: standardize and normalize
 
 # SVM Method
 # TODO: randomly select 500 articles related to DeFi
