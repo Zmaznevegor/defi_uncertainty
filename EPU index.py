@@ -42,11 +42,14 @@ data.date = pd.to_datetime(data.date).dt.strftime('%Y-%m')
 texts_per_media = data.groupby(by=["date", "source"]).count().reset_index()
 unc_media = epu_base.groupby(by=["date", "source"]).count().reset_index()
 
-scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='right')
+scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='right') # change to left to get for all
 scale = scale.rename(columns={'text_x':'total', 'text_y':'uncertain'})
-scale['scaled'] = scale.uncertain/scale.total
 
 # TODO: standardize and normalize
+scale['scaled'] = scale.uncertain/scale.total
+np.var(scale.scaled[0:76])
+scale['standardized'] = scale.scaled[0:76]/np.std(scale.scaled[0:76])
+s_t = scale.groupby(by="date").mean().scaled.reset_index() # for T1
 
 # SVM Method
 # TODO: randomly select 500 articles related to DeFi
