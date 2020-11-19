@@ -45,11 +45,18 @@ unc_media = epu_base.groupby(by=["date", "source"]).count().reset_index()
 scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='right') # change to left to get for all
 scale = scale.rename(columns={'text_x':'total', 'text_y':'uncertain'})
 
-# TODO: standardize and normalize
+# Standardize and normalize
+months = scale.groupby(by="date").count().reset_index().date
+# splitting into t1 and t2, where t1 contains 80% of observations
+T1 = months[0:22]
+T2 = months[22:28]
+
 scale['scaled'] = scale.uncertain/scale.total
-np.var(scale.scaled[0:76])
-scale['standardized'] = scale.scaled[0:76]/np.std(scale.scaled[0:76])
-s_t = scale.groupby(by="date").mean().scaled.reset_index() # for T1
+scale['standardized'] = scale.scaled/np.std(scale.scaled[scale.date.isin(T1)])
+z = scale.groupby(by="date").mean().standardized.reset_index()
+m = np.mean(scale.standardized[scale.date.isin(T2)])
+z['epu'] = z.standardized*100/m
+z.plot.line(x='date', y='epu')
 
 # SVM Method
 # TODO: randomly select 500 articles related to DeFi
