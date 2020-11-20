@@ -2,6 +2,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
+from scipy import stats
 import dill
 
 # Preprocessing
@@ -17,6 +19,7 @@ warnings.filterwarnings('ignore')
 # Define folder and load data
 data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
 data = pd.read_csv(data_folder + '/all_articles.csv')
+tvl = pd.read_csv(data_folder + '/tvl_data.csv')
 
 
 # Naive base method
@@ -56,7 +59,16 @@ scale['standardized'] = scale.scaled/np.std(scale.scaled[scale.date.isin(T1)])
 z = scale.groupby(by="date").mean().standardized.reset_index()
 m = np.mean(scale.standardized[scale.date.isin(T2)])
 z['epu'] = z.standardized*100/m
-z.plot.line(x='date', y='epu')
+
+maker = tvl[tvl.token == 'maker']
+maker.time = pd.to_datetime(maker.time).dt.strftime('%Y-%m')
+maker_epu = maker.groupby(by="time").head(1).reset_index(drop=True)
+maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
+
+pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
+z.to_csv(data_folder + '/epu_standard.csv', index=False)
+
+# TODO: check with weekly data
 
 # SVM Method
 # TODO: randomly select 500 articles related to DeFi
