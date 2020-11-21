@@ -68,7 +68,40 @@ maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time'
 pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
 z.to_csv(data_folder + '/epu_standard.csv', index=False)
 
-# TODO: check with weekly data
+# Check with weekly data
+epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%V')
+epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
+epu_month.plot.line(x='date', y='text')
+
+# Scale data
+data.date = pd.to_datetime(data.date).dt.strftime('%Y-%V')
+texts_per_media = data.groupby(by=["date", "source"]).count().reset_index()
+unc_media = epu_base.groupby(by=["date", "source"]).count().reset_index()
+
+scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='right') # change to left to get for all
+scale = scale.rename(columns={'text_x':'total', 'text_y':'uncertain'})
+
+# Standardize and normalize
+weeks = scale.groupby(by="date").count().reset_index().date
+round(0.8*len(weeks))+1
+# splitting into t1 and t2, where t1 contains 80% of observations
+T1 = weeks[0:round(0.8*len(weeks))+1]
+T2 = weeks[(round(0.8*len(weeks))+1):len(weeks)]
+
+scale['scaled'] = scale.uncertain/scale.total
+scale['standardized'] = scale.scaled/np.std(scale.scaled[scale.date.isin(T1)])
+z = scale.groupby(by="date").mean().standardized.reset_index()
+m = np.mean(scale.standardized[scale.date.isin(T2)])
+z['epu'] = z.standardized*100/m
+
+maker = tvl[tvl.token == 'maker']
+maker.time = pd.to_datetime(maker.time).dt.strftime('%Y-%V')
+maker_epu = maker.groupby(by="time").head(1).reset_index(drop=True)
+maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
+
+pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
+
+# TODO: consequent timing
 
 # SVM Method
 # TODO: randomly select 500 articles related to DeFi
