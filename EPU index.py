@@ -104,12 +104,8 @@ maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time'
 pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
 
 # Consequent timing
-import datetime as dt
-a=pd.date_range(start="2017-12-18",end="2020-11-11")
-a.formatted_date.apply(lambda x: x.weekofyear)
-dt.strftime(a,'%U')
+pd.date_range(start="2017-12-18",end="2020-11-11").strftime('%Y-%V')
 
-a.weekofyear
 
 # SVM Method
 # TODO: randomly select 500 articles related to DeFi
