@@ -68,6 +68,8 @@ maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time'
 pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
 z.to_csv(data_folder + '/epu_standard.csv', index=False)
 
+
+
 # Check with weekly data
 epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%V')
 epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
@@ -101,7 +103,13 @@ maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time'
 
 pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
 
-# TODO: consequent timing
+# Consequent timing
+import datetime as dt
+a=pd.date_range(start="2017-12-18",end="2020-11-11")
+a.formatted_date.apply(lambda x: x.weekofyear)
+dt.strftime(a,'%U')
+
+a.weekofyear
 
 # SVM Method
 # TODO: randomly select 500 articles related to DeFi
