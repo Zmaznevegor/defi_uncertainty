@@ -70,7 +70,7 @@ z.to_csv(data_folder + '/epu_standard.csv', index=False)
 
 
 
-# Check with weekly data
+# TEST: Check with weekly data
 epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%V')
 epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
 epu_month.plot.line(x='date', y='text')
@@ -103,8 +103,34 @@ maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time'
 
 pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
 
-# Consequent timing
-pd.date_range(start="2017-12-18",end="2020-11-11").strftime('%Y-%V')
+# TEST: Add consequent timing (start date is taken from the launch of maker)
+scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='left') # change to right to get just for months with epu
+scale = scale.rename(columns={'text_x':'total', 'text_y':'uncertain'})
+
+# Take only relevant to defi time (based on the launch of maker)
+scale = scale[scale.date > '2017-51'].fillna(0)
+
+# Standardize and normalize
+weeks = scale.groupby(by="date").count().reset_index().date
+
+# splitting into t1 and t2, where t1 contains 80% of observations
+T1 = weeks[0:round(0.8*len(weeks))+1]
+T2 = weeks[(round(0.8*len(weeks))+1):len(weeks)]
+
+scale['scaled'] = scale.uncertain/scale.total
+scale['standardized'] = scale.scaled/np.std(scale.scaled[scale.date.isin(T1)])
+z = scale.groupby(by="date").mean().standardized.reset_index()
+m = np.mean(scale.standardized[scale.date.isin(T2)])
+z['epu'] = z.standardized*100/m
+
+z.plot(x = 'date', y = 'epu')
+
+maker = tvl[tvl.token == 'maker']
+maker.time = pd.to_datetime(maker.time).dt.strftime('%Y-%V')
+maker_epu = maker.groupby(by="time").head(1).reset_index(drop=True)
+maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
+
+pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
 
 
 # SVM Method
