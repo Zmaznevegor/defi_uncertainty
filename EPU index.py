@@ -35,42 +35,8 @@ defi_regulation = match_df(grep=' regulat| supreme court| government| European C
 uncertainty_words = '\bapparently\b|\bapparent\b|\bindication\b|\bcould\b|\bpossible\b|\bevasive\b|uncertain|\bpotential\b|\bquestionably\b|doubt|suspect|putative|would|not easily|no notion|\blikely\b|either|\bassume\b|\bhope\b|\bthink\b|\bseem\b|\bperhaps\b|\belusive\b|\bunsure\b|\bpotentially|\bappear\b|\bdoubtful\b|\bsuspecting\b|\bprobably\b|\bmay\b|\bassumption\b|\bhypothesis\|\bpotential\b|\bpossibility\b|\bunstable\b|\bunknown\b|\bpreferential\b|\bspeculate\b|\bpresumably\b|\bprobable\b|\bhypothetical\b|\bpotentially\b|\bunsettled\b|\bunfamiliar\b|\bpreferentially\b|\bspeculation\b|\bsuppose\b|\bsupposedly\b|\bmaybe\b|\bseemingly\b|\bunclear\b|\bimprobable\b|\bestimate\b|\bsuggest\b|\bexpect\b|\bpretended\b|\bperchance\b|\buncertainty\b|\bpossibly\b|\bostensibly\b|\bvague\b|\bimprobably\b|\bquestionable\b|\bdoubt\b|\bexpecting\b|\bsupposed\b|\bmight\b'
 epu_base = match_df(grep=uncertainty_words, dataframe=defi_regulation)
 
-# Make monthly count of EPU-addressed news
-epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%m')
-epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
-epu_month.plot.line(x='date', y='text')
 
-# Scale data
-data.date = pd.to_datetime(data.date).dt.strftime('%Y-%m')
-texts_per_media = data.groupby(by=["date", "source"]).count().reset_index()
-unc_media = epu_base.groupby(by=["date", "source"]).count().reset_index()
-
-scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='right') # change to left to get for all
-scale = scale.rename(columns={'text_x':'total', 'text_y':'uncertain'})
-
-# Standardize and normalize
-months = scale.groupby(by="date").count().reset_index().date
-# splitting into t1 and t2, where t1 contains 80% of observations
-T1 = months[0:22]
-T2 = months[22:28]
-
-scale['scaled'] = scale.uncertain/scale.total
-scale['standardized'] = scale.scaled/np.std(scale.scaled[scale.date.isin(T1)])
-z = scale.groupby(by="date").mean().standardized.reset_index()
-m = np.mean(scale.standardized[scale.date.isin(T2)])
-z['epu'] = z.standardized*100/m
-
-maker = tvl[tvl.token == 'maker']
-maker.time = pd.to_datetime(maker.time).dt.strftime('%Y-%m')
-maker_epu = maker.groupby(by="time").head(1).reset_index(drop=True)
-maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
-
-pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
-z.to_csv(data_folder + '/epu_standard.csv', index=False)
-
-
-
-# TEST: Check with weekly data
+# Check with weekly data
 epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%V')
 epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
 epu_month.plot.line(x='date', y='text')
@@ -80,30 +46,7 @@ data.date = pd.to_datetime(data.date).dt.strftime('%Y-%V')
 texts_per_media = data.groupby(by=["date", "source"]).count().reset_index()
 unc_media = epu_base.groupby(by=["date", "source"]).count().reset_index()
 
-scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='right') # change to left to get for all
-scale = scale.rename(columns={'text_x':'total', 'text_y':'uncertain'})
-
-# Standardize and normalize
-weeks = scale.groupby(by="date").count().reset_index().date
-round(0.8*len(weeks))+1
-# splitting into t1 and t2, where t1 contains 80% of observations
-T1 = weeks[0:round(0.8*len(weeks))+1]
-T2 = weeks[(round(0.8*len(weeks))+1):len(weeks)]
-
-scale['scaled'] = scale.uncertain/scale.total
-scale['standardized'] = scale.scaled/np.std(scale.scaled[scale.date.isin(T1)])
-z = scale.groupby(by="date").mean().standardized.reset_index()
-m = np.mean(scale.standardized[scale.date.isin(T2)])
-z['epu'] = z.standardized*100/m
-
-maker = tvl[tvl.token == 'maker']
-maker.time = pd.to_datetime(maker.time).dt.strftime('%Y-%V')
-maker_epu = maker.groupby(by="time").head(1).reset_index(drop=True)
-maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
-
-pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
-
-# TEST: Add consequent timing (start date is taken from the launch of maker)
+# Add consequent timing (start date is taken from the launch of maker)
 scale = pd.merge(texts_per_media,unc_media, on=['date', 'source'], how='left') # change to right to get just for months with epu
 scale = scale.rename(columns={'text_x':'total', 'text_y':'uncertain'})
 
@@ -131,6 +74,8 @@ maker_epu = maker.groupby(by="time").head(1).reset_index(drop=True)
 maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
 
 pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
+
+# TODO: VAR for weekly and monthly EPU
 
 
 # SVM Method
