@@ -35,7 +35,6 @@ defi_regulation = match_df(grep=' regulat| supreme court| government| European C
 uncertainty_words = '\bapparently\b|\bapparent\b|\bindication\b|\bcould\b|\bpossible\b|\bevasive\b|uncertain|\bpotential\b|\bquestionably\b|doubt|suspect|putative|would|not easily|no notion|\blikely\b|either|\bassume\b|\bhope\b|\bthink\b|\bseem\b|\bperhaps\b|\belusive\b|\bunsure\b|\bpotentially|\bappear\b|\bdoubtful\b|\bsuspecting\b|\bprobably\b|\bmay\b|\bassumption\b|\bhypothesis\|\bpotential\b|\bpossibility\b|\bunstable\b|\bunknown\b|\bpreferential\b|\bspeculate\b|\bpresumably\b|\bprobable\b|\bhypothetical\b|\bpotentially\b|\bunsettled\b|\bunfamiliar\b|\bpreferentially\b|\bspeculation\b|\bsuppose\b|\bsupposedly\b|\bmaybe\b|\bseemingly\b|\bunclear\b|\bimprobable\b|\bestimate\b|\bsuggest\b|\bexpect\b|\bpretended\b|\bperchance\b|\buncertainty\b|\bpossibly\b|\bostensibly\b|\bvague\b|\bimprobably\b|\bquestionable\b|\bdoubt\b|\bexpecting\b|\bsupposed\b|\bmight\b'
 epu_base = match_df(grep=uncertainty_words, dataframe=defi_regulation)
 
-
 # Check with weekly data
 epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%V')
 epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
@@ -75,7 +74,9 @@ maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time'
 
 pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
 
-# TODO: VAR for weekly and monthly EPU
+# Export for VAR in R
+maker.to_csv(data_folder + '/maker.csv', index=False)
+z.to_csv(data_folder + '/weekly_epu_base.csv', index=False)
 
 
 # SVM Method
