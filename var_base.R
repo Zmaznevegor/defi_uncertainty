@@ -21,60 +21,60 @@ y <- ts(z[,3:5], frequency=52,
 
 autoplot(y)
 
-# Convert to tsibble
+# Plot EPU Index
+autoplot(y[,1])+
+  ggtitle("Weekly EPU for DeFi services") +
+  ylab("Index") + xlab("Week")
+
+# Check differencing and log
+diff(y[,1]) %>% checkresiduals()
+
+diffed <- diff(y)
+
+autoplot(diffed[,1])+
+  ggtitle("Differenced weekly EPU") +
+  ylab("Index") + xlab("Week")
+
+autoplot(log(y[,3]))+
+  ggtitle("Differenced weekly Maker price") +
+  ylab("Price (ETH)") + xlab("Week")
+
+# Select best VAR ----
+# With diffs
+VARselect(cbind((y[,1]), log(y[,3])),
+          lag.max=8,
+          type="const")[["selection"]]
+
+cbind((y[,1]), log(y[,3]))
+
+var1 <- VAR(cbind(difference(y[,1])[2:119], log(y[,3])[2:119]), p=3, type="const")
+serial.test(var1, lags.pt=10, type="PT.asymptotic")
+
+var2 <- VAR(diffed[,c(1,3)], p=3, type="const")
+serial.test(var2, lags.pt=10, type="PT.asymptotic")
+
+var3 <- VAR(diffed[,c(1,3)], p=4, type="const")
+serial.test(var3, lags.pt=10, type="PT.asymptotic")
+
+var4 <- VAR(diffed[,c(1,3)], p=5, type="const")
+serial.test(var4, lags.pt=10, type="PT.asymptotic")
+
+summary(var3)
+
+# Impulse response functions
+irf <- irf(var1, impulse = "y1", response = "y2", 
+               n.ahead = 15, boot = TRUE)
+
+plot(irf, ylab = "ouput", main = "Shock from uncertainty")
+
+
+# ARIMA with tsibble ----
 z$date <- gsub('(.+?)-(.+?)', '\\1-W\\2', z$date)
 
 z <- z %>% 
   mutate(date = yearweek(date)) %>% 
   as_tsibble(index = date)
 
-# Plot EPU Index
-z %>% 
-  autoplot(epu)
-  ggtitle("Weekly EPU for DeFi services") +
-  ylab("Index") + xlab("Week")
-
-# Split into training and test
-train <- window(y, start = c(2017, 52),
-                end = c(2020, 15),
-                frequency = 52)  
-  
-test <- window(y, start = c(2020, 16),
-               frequency = 52)
-
-
-train[,1] %>% ur.kpss() %>% summary()
-train[,1] %>% ndiffs()
-
-diff(train[,c(1,3)]) %>% checkresiduals()
-
-dtrain <- diff(train)
-
-# Select best VAR ----
-# With diffs
-VARselect(dtrain[,c(1,3)],lag.max=8,
-          type="const")[["selection"]]
-
-
-var1 <- VAR(dtrain[,c(1,3)], p=1, type="const")
-serial.test(var1, lags.pt=10, type="PT.asymptotic")
-
-var2 <- VAR(dtrain[,c(1,3)], p=2, type="const")
-serial.test(var2, lags.pt=10, type="PT.asymptotic")
-
-summary(var2)
-
-forecast(var2, h = 30) %>% 
-  autoplot()+
-  autolayer(diff(test[,c(1,3)]), series = "Actual")
-
-# Impulse response functions
-irf <- irf(var5, impulse = "epu", response = "tvlusd", 
-               n.ahead = 15, boot = TRUE)
-
-plot(irf, ylab = "ouput", main = "Shock from uncertainty")
-
-#tsibble version ----
 train <- z %>% filter(date <= z$date[120])
 test <- z %>% filter(date > z$date[120])
 
@@ -88,3 +88,64 @@ train %>%
 # Check with ndiffs
 train %>%
   features(epu, unitroot_ndiffs) # coherent with kpss test
+
+fit<- train %>% 
+  model(ARIMA(log(tvleth)~epu)) %>% report()
+
+train <- window(y, start = c(2017, 52),
+                end = c(2020, 15),
+                frequency = 52)  
+
+test <- window(y, start = c(2020, 16),
+               frequency = 52)
+
+fit <- auto.arima(log(train[,3]), 
+                  xreg = train[,1], 
+                  lambda = BoxCox.lambda(train[,3]))
+
+summary(fit)
+
+fcs <- forecast(fit, xreg= test[,1], h = 30)
+
+autoplot(fcs, series = "Forecast with EPU")+
+  autolayer(log(y[,3]), series = "Real value")
+
+fit2 <- auto.arima(log(train[,3]), 
+                  lambda = BoxCox.lambda(train[,3]))
+
+fcs2 <- forecast(fit2, h = 30)
+
+autoplot(fcs2, series = "Forecast with EPU")+
+  autolayer(log(y[,3]), series = "Real value")
+
+
+fit3 <- auto.arima(train[,3], 
+                   lambda = BoxCox.lambda(train[,3]))
+
+fcs3 <- forecast(fit3, h = 30)
+
+autoplot(fcs3, series = "Forecast with EPU")+
+  autolayer(y[,3], series = "Real value")
+
+
+fit4 <- auto.arima(train[,3],
+                   xreg = train[,1])
+
+fcs4 <- forecast(fit4, xreg = test[,1], h = 30)
+
+autoplot(fcs4, series = "Forecast with EPU")+
+  autolayer(y[,3], series = "Real value")
+
+fit5 <- auto.arima(diff(train[,3]),
+                   xreg = diff(train[,1]))
+
+fcs5 <- forecast(fit5, xreg = test[,1], h = 30)
+
+autoplot(fcs5, series = "Forecast with EPU")+
+  autolayer(diff(y[,3]), series = "Real value")
+
+accuracy(fcs, x = log(test[,3]))
+accuracy(fcs2, x = log(test[,3]))
+accuracy(fcs3, x = test[,3])
+accuracy(fcs4, x = test[,3])
+accuracy(fcs5, x = diff(test[,3]))
