@@ -47,22 +47,13 @@ VARselect(cbind((y[,1]), log(y[,3])),
 
 cbind((y[,1]), log(y[,3]))
 
-var1 <- VAR(cbind(difference(y[,1])[2:119], log(y[,3])[2:119]), p=3, type="const")
+var <- VAR(cbind(difference(y[,1])[2:119], log(y[,3])[2:119]), p=3, type="const")
 serial.test(var1, lags.pt=10, type="PT.asymptotic")
 
-var2 <- VAR(diffed[,c(1,3)], p=3, type="const")
-serial.test(var2, lags.pt=10, type="PT.asymptotic")
-
-var3 <- VAR(diffed[,c(1,3)], p=4, type="const")
-serial.test(var3, lags.pt=10, type="PT.asymptotic")
-
-var4 <- VAR(diffed[,c(1,3)], p=5, type="const")
-serial.test(var4, lags.pt=10, type="PT.asymptotic")
-
-summary(var3)
+summary(var)
 
 # Impulse response functions
-irf <- irf(var1, impulse = "y1", response = "y2", 
+irf <- irf(var, impulse = "y1", response = "y2", 
                n.ahead = 15, boot = TRUE)
 
 plot(irf, ylab = "ouput", main = "Shock from uncertainty")
