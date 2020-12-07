@@ -6,12 +6,6 @@ from scipy.stats import pearsonr
 from scipy import stats
 import dill
 
-# Preprocessing
-from nltk.corpus import stopwords
-import string
-import re
-import spacy
-
 # Remove warnings
 import warnings
 warnings.filterwarnings('ignore')
@@ -78,25 +72,25 @@ maker.time = pd.to_datetime(maker.time).dt.strftime('%Y-%U')
 maker_epu = maker.groupby(by="time").head(1).reset_index(drop=True)
 maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
 
-pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
+pearsonr(z[(z.date > '2018-42') & (z.date <'2020-45')]['epu'], maker_epu[maker_epu.time.isin(z[(z.date > '2018-42') & (z.date <'2020-45')]['date'])].reset_index(drop=True).sort_values('time')['tvleth'])
 
 # Compound data (yeild farming)
 compound = tvl[tvl.token == 'compound']
 compound.time = pd.to_datetime(compound.time).dt.strftime('%Y-%U')
 compound_epu = compound.groupby(by="time").head(1).reset_index(drop=True).fillna(compound.tvleth.iloc[1])
 
-compound_epu[compound_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
+compound_epu[compound_epu.time.isin(z[(z.date > '2018-42') & (z.date <'2020-45')]['date'])].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
 
-pearsonr(z[z.date > '2018-37']['epu'], compound_epu['tvleth'])
+pearsonr(z[(z.date > '2018-42') & (z.date <'2020-45')]['epu'], compound_epu[compound_epu.time.isin(z[(z.date > '2018-42') & (z.date <'2020-45')]['date'])].reset_index(drop=True).sort_values('time')['tvleth'])
 
 # Uniswap data (representaative stablecoin)
 uniswap = tvl[tvl.token == 'uniswap']
 uniswap.time = pd.to_datetime(uniswap.time).dt.strftime('%Y-%U')
 uniswap_epu = uniswap.groupby(by="time").head(1).reset_index(drop=True)
 
-uniswap_epu[uniswap_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
+uniswap_epu[uniswap_epu.time.isin(z[(z.date > '2018-42') & (z.date <'2020-45')]['date'])].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
 
-pearsonr(z[z.date > '2018-42']['epu'], uniswap_epu['tvleth'])
+pearsonr(z[(z.date > '2018-42') & (z.date <'2020-45')]['epu'], uniswap_epu[uniswap_epu.time.isin(z[(z.date > '2018-42') & (z.date <'2020-45')]['date'])].reset_index(drop=True).sort_values('time')['tvleth'])
 
 # Export for VAR in defi
 maker.to_csv(data_folder + '/defi/maker.csv', index=False)
