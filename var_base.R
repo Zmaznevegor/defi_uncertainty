@@ -35,25 +35,26 @@ autoplot(diffed[,1])+
   ggtitle("Differenced weekly EPU") +
   ylab("Index") + xlab("Week")
 
-autoplot(log(y[,3]))+
+autoplot(diff(y[,3], lag = 1))+
   ggtitle("Differenced weekly Maker price") +
   ylab("Price (ETH)") + xlab("Week")
 
 # Select best VAR ----
 # With diffs
-VARselect(cbind((y[,1]), log(y[,3])),
+VARselect(cbind((y[,1])[2:150], diff(y[,3])),
           lag.max=8,
           type="const")[["selection"]]
 
-cbind((y[,1]), log(y[,3]))
+df <- as_tibble()
 
-var <- VAR(cbind(difference(y[,1])[2:119], log(y[,3])[2:119]), p=3, type="const")
+var <- VAR(cbind(epu = y[,1][2:150], 
+                  diff_tvl = diff(y[,3])), p=3, type="const")
 serial.test(var1, lags.pt=10, type="PT.asymptotic")
 
 summary(var)
 
 # Impulse response functions
-irf <- irf(var, impulse = "y1", response = "y2", 
+irf <- irf(var, impulse = "epu", response = "diff_tvl", 
                n.ahead = 15, boot = TRUE)
 
 plot(irf, ylab = "ouput", main = "Shock from uncertainty")

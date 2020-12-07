@@ -19,7 +19,7 @@ warnings.filterwarnings('ignore')
 # Define folder and load data
 data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
 data = pd.read_csv(data_folder + '/all_articles.csv')
-tvl = pd.read_csv(data_folder + '/tvl_data.csv')
+tvl = pd.read_csv(data_folder + '/defi/tvl_data.csv')
 
 
 # Naive base method
@@ -32,16 +32,21 @@ def match_df(grep, case_sense:bool = False, dataframe=data):
 
 defi = match_df(grep=' defi |decentrali(z|s)ed finance')
 defi_regulation = match_df(grep=' regulat| supreme court| government| European Commission|legislati| European Central Bank|\bjurisdiction\b|\bSEC\b|\bcompliance\b', dataframe=defi)
-uncertainty_words = '\bapparently\b|\bapparent\b|\bindication\b|\bcould\b|\bpossible\b|\bevasive\b|uncertain|\bpotential\b|\bquestionably\b|doubt|suspect|putative|would|not easily|no notion|\blikely\b|either|\bassume\b|\bhope\b|\bthink\b|\bseem\b|\bperhaps\b|\belusive\b|\bunsure\b|\bpotentially|\bappear\b|\bdoubtful\b|\bsuspecting\b|\bprobably\b|\bmay\b|\bassumption\b|\bhypothesis\|\bpotential\b|\bpossibility\b|\bunstable\b|\bunknown\b|\bpreferential\b|\bspeculate\b|\bpresumably\b|\bprobable\b|\bhypothetical\b|\bpotentially\b|\bunsettled\b|\bunfamiliar\b|\bpreferentially\b|\bspeculation\b|\bsuppose\b|\bsupposedly\b|\bmaybe\b|\bseemingly\b|\bunclear\b|\bimprobable\b|\bestimate\b|\bsuggest\b|\bexpect\b|\bpretended\b|\bperchance\b|\buncertainty\b|\bpossibly\b|\bostensibly\b|\bvague\b|\bimprobably\b|\bquestionable\b|\bdoubt\b|\bexpecting\b|\bsupposed\b|\bmight\b'
+
+# Large corpus
+#uncertainty_words = '\bapparently\b|\bapparent\b|\bindication\b|\bcould\b|\bpossible\b|\bevasive\b|uncertain|\bpotential\b|\bquestionably\b|doubt|suspect|putative|would|not easily|no notion|\blikely\b|either|\bassume\b|\bhope\b|\bthink\b|\bseem\b|\bperhaps\b|\belusive\b|\bunsure\b|\bpotentially|\bappear\b|\bdoubtful\b|\bsuspecting\b|\bprobably\b|\bmay\b|\bassumption\b|\bhypothesis\|\bpotential\b|\bpossibility\b|\bunstable\b|\bunknown\b|\bpreferential\b|\bspeculate\b|\bpresumably\b|\bprobable\b|\bhypothetical\b|\bpotentially\b|\bunsettled\b|\bunfamiliar\b|\bpreferentially\b|\bspeculation\b|\bsuppose\b|\bsupposedly\b|\bmaybe\b|\bseemingly\b|\bunclear\b|\bimprobable\b|\bestimate\b|\bsuggest\b|\bexpect\b|\bpretended\b|\bperchance\b|\buncertainty\b|\bpossibly\b|\bostensibly\b|\bvague\b|\bimprobably\b|\bquestionable\b|\bdoubt\b|\bexpecting\b|\bsupposed\b|\bmight\b'
+
+# Base uncertainty corpus
+uncertainty_words = 'uncertainty|uncertain| not certain'
 epu_base = match_df(grep=uncertainty_words, dataframe=defi_regulation)
 
 # Check with weekly data
-epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%V')
+epu_base.date = pd.to_datetime(epu_base.date).dt.strftime('%Y-%U')
 epu_month=epu_base[['date','text']].groupby(by="date").count().reset_index()
 epu_month.plot.line(x='date', y='text')
 
 # Scale data
-data.date = pd.to_datetime(data.date).dt.strftime('%Y-%V')
+data.date = pd.to_datetime(data.date).dt.strftime('%Y-%U')
 texts_per_media = data.groupby(by=["date", "source"]).count().reset_index()
 unc_media = epu_base.groupby(by=["date", "source"]).count().reset_index()
 
@@ -67,15 +72,36 @@ z['epu'] = z.standardized*100/m
 
 z.plot(x = 'date', y = 'epu')
 
+# Maker data (DEX token)
 maker = tvl[tvl.token == 'maker']
-maker.time = pd.to_datetime(maker.time).dt.strftime('%Y-%V')
+maker.time = pd.to_datetime(maker.time).dt.strftime('%Y-%U')
 maker_epu = maker.groupby(by="time").head(1).reset_index(drop=True)
 maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
 
 pearsonr(z['epu'], maker_epu[maker_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'])
 
-# Export for VAR in R
-maker.to_csv(data_folder + '/maker.csv', index=False)
+# Compound data (yeild farming)
+compound = tvl[tvl.token == 'compound']
+compound.time = pd.to_datetime(compound.time).dt.strftime('%Y-%U')
+compound_epu = compound.groupby(by="time").head(1).reset_index(drop=True).fillna(compound.tvleth.iloc[1])
+
+compound_epu[compound_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
+
+pearsonr(z[z.date > '2018-37']['epu'], compound_epu['tvleth'])
+
+# Uniswap data (representaative stablecoin)
+uniswap = tvl[tvl.token == 'uniswap']
+uniswap.time = pd.to_datetime(uniswap.time).dt.strftime('%Y-%U')
+uniswap_epu = uniswap.groupby(by="time").head(1).reset_index(drop=True)
+
+uniswap_epu[uniswap_epu.time.isin(z.date)].reset_index(drop=True).sort_values('time')['tvleth'] # relevant to EPU parameter of TVL
+
+pearsonr(z[z.date > '2018-42']['epu'], uniswap_epu['tvleth'])
+
+# Export for VAR in defi
+maker.to_csv(data_folder + '/defi/maker.csv', index=False)
+compound.to_csv(data_folder + '/defi/compound.csv', index=False)
+uniswap.to_csv(data_folder + '/defi/uniswap.csv', index=False)
 z.to_csv(data_folder + '/weekly_epu_base.csv', index=False)
 
 

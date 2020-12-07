@@ -136,7 +136,7 @@ for i in offsets:
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
-result.to_csv(data_folder + '/coindesk.csv', index=False)
+result.to_csv(data_folder + '/news/coindesk.csv', index=False)
 
 
 # The Block scrapper
@@ -174,7 +174,7 @@ for i in offsets:
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
-result.to_csv(data_folder + '/block.csv', index=False)
+result.to_csv(data_folder + '/news/block.csv', index=False)
 
 
 # JSON scrapper with rendered content
@@ -212,7 +212,7 @@ for i in offsets:
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
-result.to_csv(data_folder + '/blockonomi.csv', index=False)
+result.to_csv(data_folder + '/news/blockonomi.csv', index=False)
 
 
 # Crypto News Flash scrapper
@@ -232,7 +232,7 @@ for i in offsets:
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
-result.to_csv(data_folder + '/cnf.csv', index=False)
+result.to_csv(data_folder + '/news/cnf.csv', index=False)
 
 # News btc sraper
 # 1 to 975
@@ -251,7 +251,7 @@ for i in offsets:
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
-result.to_csv(data_folder + '/newsbtc.csv', index=False)
+result.to_csv(data_folder + '/news/newsbtc.csv', index=False)
 
 # Cryptoslate srapper
 # 1 to 206
@@ -270,7 +270,7 @@ for i in offsets:
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
-result.to_csv(data_folder + '/slate.csv', index=False)
+result.to_csv(data_folder + '/news/slate.csv', index=False)
 
 # Cryptonews HTML srapper
 driver = webdriver.Firefox()
@@ -305,7 +305,7 @@ result = pd.DataFrame(columns=['date', 'text'])
 result['date'] = date
 result['text'] = texts
 
-result.to_csv(data_folder + '/cryptonews.csv', index=False)
+result.to_csv(data_folder + '/news/cryptonews.csv', index=False)
 
 # News Bitcoin HTML srapper
 # Collect all the article links
@@ -333,7 +333,7 @@ result = pd.DataFrame(columns=['date', 'text'])
 result['date'] = date
 result['text'] = texts
 
-result.to_csv(data_folder + '/newsbitcoin.csv', index=False)
+result.to_csv(data_folder + '/news/newsbitcoin.csv', index=False)
 
 # Ambcrypto html srapper
 # Load the page all the way through
@@ -367,7 +367,7 @@ result = pd.DataFrame(columns=['date', 'text'])
 result['date'] = date
 result['text'] = texts
 
-result.to_csv(data_folder + '/ambcrpyto.csv', index=False)
+result.to_csv(data_folder + '/news/ambcrpyto.csv', index=False)
 
 # Cointelegraph html srapper
 # Load the page all the way through
@@ -394,7 +394,7 @@ result = pd.DataFrame(columns=['date', 'text'])
 result['date'] = date
 result['text'] = texts
 
-result.to_csv(data_folder + '/cointelegraph.csv', index=False)
+result.to_csv(data_folder + '/news/cointelegraph.csv', index=False)
 
 # Stop webdriver
 driver.quit()
@@ -464,4 +464,4 @@ for i in defi:
 result = pd.concat(frames, ignore_index=True)
 result.time = pd.to_datetime(result.time, infer_datetime_format=True, utc=True)
 result.time = result.time.dt.date
-result.to_csv(data_folder + '/tvl_data.csv', index=False)
+result.to_csv(data_folder + '/defi/tvl_data.csv', index=False)
