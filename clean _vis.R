@@ -91,24 +91,3 @@ epu_m <- epu %>%
 
 ggplot(data = epu_m, aes(x=month, y =n))+
   geom_line()
-
-mtcars %>% 
-  arrange(desc(mpg)) %>% 
-  group_by(cyl) %>% slice(1:2)
-
-maker <- tvl %>% 
-  mutate(month = as.yearmon(tvl$time)) %>% 
-  filter(token == "maker") %>% 
-  group_by(month) %>% 
-  slice(1)
-  
-ggplot(data = maker, aes(x=time, y =tvleth))+
-  geom_line()
-
-p1 <- ggplot() + 
-  geom_line(data=maker, aes(x=month, y=tvleth), color='red')
-
-p2 <-ggplot() + geom_line(data=epu_m, aes(x=month, y=n), color='blue')
-
-
-p1+p2

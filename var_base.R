@@ -1,4 +1,4 @@
-# Libraries and data load
+# Libraries and data load ----
 library(readr)
 library(dplyr)
 library(tsibble)
@@ -10,7 +10,8 @@ library(vars)
 
 theme_set(theme_minimal())
 z <- read_csv("data/weekly_epu_base.csv")
-maker <- read_csv("data/maker.csv") %>% rename(date = time) %>% group_by(date) %>% slice(1) %>% filter(date %in% z$date)
+
+maker <- read_csv("data/defi/maker.csv") %>% rename(date = time) %>% group_by(date) %>% slice(1) %>% filter(date %in% z$date)
 
 # Combine data sets
 z <- left_join(z, maker, by = "date")
@@ -27,7 +28,7 @@ autoplot(y[,1])+
   ylab("Index") + xlab("Week")
 
 # Check differencing and log
-diff(y[,1]) %>% checkresiduals()
+diff(y[,3]) %>% checkresiduals()
 
 diffed <- diff(y)
 
@@ -35,27 +36,42 @@ autoplot(diffed[,1])+
   ggtitle("Differenced weekly EPU") +
   ylab("Index") + xlab("Week")
 
-autoplot(diff(y[,3], lag = 1))+
+autoplot(diff(log(y[,3])))+
   ggtitle("Differenced weekly Maker price") +
   ylab("Price (ETH)") + xlab("Week")
 
+diff(log(y[,3])) %>% checkresiduals()
+
 # Select best VAR ----
 # With diffs
-VARselect(cbind((y[,1])[2:150], diff(y[,3])),
+VARselect(cbind((y[,1]), log(y[,3])),
           lag.max=8,
           type="const")[["selection"]]
 
-df <- as_tibble()
+var <- VAR(cbind(epu = y[,1], 
+                 diff_tvl = log(y[,3])), p=2, type="const")
 
+irf <- irf(var, impulse = "epu", response = "diff_tvl", 
+           n.ahead = 15, boot = TRUE)
+
+#-----------------------------------------------
+var_usd <- VAR(cbind(epu = y[,1][2:150], 
+                  diff_tvl = diff(log(y[,3]))), p=1, type="const")
 var <- VAR(cbind(epu = y[,1][2:150], 
-                  diff_tvl = diff(y[,3])), p=3, type="const")
-serial.test(var1, lags.pt=10, type="PT.asymptotic")
+                 diff_tvl = diff(log(y[,3]))), p=2, type="const")
+var <- VAR(cbind(epu = y[,1][2:150], 
+                 diff_tvl = diff(log(y[,3]))), p=3, type="const")
+
+serial.test(var, lags.pt=10, type="PT.asymptotic")
 
 summary(var)
 
 # Impulse response functions
 irf <- irf(var, impulse = "epu", response = "diff_tvl", 
                n.ahead = 15, boot = TRUE)
+
+irf_usd <- irf(var_usd, impulse = "epu", response = "diff_tvl", 
+           n.ahead = 15, boot = TRUE)
 
 plot(irf, ylab = "ouput", main = "Shock from uncertainty")
 
