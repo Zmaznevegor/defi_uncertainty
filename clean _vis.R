@@ -14,45 +14,37 @@ data <- read.csv("data/all_articles.csv") %>%
 
 tvl <- fread("data/defi/tvl_data.csv")
 
-# Fixes for the news bitcoin data
+# Cleaning text data ----
+## News Bitcoin ----
 # Articles that do not have the end line: sponsored and ads that should be dropped
-misc <- data[which(data$source=="newsbitcoin")][!grep("comments.+?below",  data[which(data$source=="newsbitcoin")]$text)]
+misc <- data[which(data$source=="newsbitcoin"),][grep("comments.+?below", data[which(data$source =="newsbitcoin"),"text"]),] %>% 
+  anti_join(data[which(data$source=="newsbitcoin"),], ., by = "text")
 
 # Fix footer for news bitcoin (recommendation articles)
-# Check for the final line before the end of the article
-footer <- data[which(data$source=="newsbitcoin")][grep("comments.+?below",  data[which(data$source=="newsbitcoin")]$text)]
-
 # For the newsdata, gsub text to drop the text that goes after the end line
-data[which(data$source=="newsbitcoin")][grep("comments.+?below",  data[which(data$source=="newsbitcoin")]$text)]$text <- gsub("(.+?)comments.+?below(.+)", "\\1", data[which(data$source=="newsbitcoin")][grep("comments.+?below",  data[which(data$source=="newsbitcoin")]$text)]$text)
+data[which(data$source=="newsbitcoin"),][grep("comments.+?below", data[which(data$source =="newsbitcoin"),"text"]),]$text <- gsub("(.+?)comments.+?below(.+)", "\\1", data[which(data$source=="newsbitcoin"),][grep("comments.+?below", data[which(data$source =="newsbitcoin"),"text"]),]$text)
 
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
 data  <-  data %>% 
   filter(data$text %!in% misc$text)
 
-# Check cryptonews articles for junk
+## Cryptonews ----
 # Defining the irrelevant to the article content
 footer <- data[which(data$source=="cryptonews")][grep("Learn more:|\n_____\n",  data[which(data$source=="cryptonews")]$text)]
 
 # gsub unecessary content
 data[which(data$source=="cryptonews")][grep("Learn more:|\\n_____\\n",  data[which(data$source=="cryptonews")]$text)]$text <- gsub("(.+?)(Learn more:|\n_____\n)(.+)", "\\1", data[which(data$source=="cryptonews")][grep("Learn more:|\n_____\n",  data[which(data$source=="cryptonews")]$text)]$text)
 
-
-# Сheck ambcrypto articles for junk
-footer <- data[which(data$source=="ambcrpyto")][grep("Did you like the article.\\nYes\\nNo",  data[which(data$source=="ambcrpyto")]$text)]
-data[which(data$source=="ambcrpyto")][grep("Did you like the article.\\nYes\\nNo",  data[which(data$source=="ambcrpyto")]$text)]$text<- gsub("(.+?)Did you like the article.+", "\\1", data[which(data$source=="ambcrpyto")][grep("Did you like the article.\\nYes\\nNo",  data[which(data$source=="ambcrpyto")]$text)]$text)
-
-misc <- data[which(data$source=="ambcrpyto")][grep("This is a paid post and should not be considered as news",  data[which(data$source=="ambcrpyto")]$text, ignore.case = T)]
-data  <-  data %>% 
-  filter(data$text %!in% misc$text)
     
-# Check cointelegraph articles for junk
+## Cointelegraph ----
 footer <- data[which(data$source=="cointelegraph")][grep("Subscribe to the Finance Redefined newsletter",  data[which(data$source=="cointelegraph")]$text)]
 data[which(data$source=="cointelegraph")][grep("Subscribe to the Finance Redefined newsletter",  data[which(data$source=="cointelegraph")]$text)]$text <- gsub("(.+?)Subscribe to the Finance Redefined newsletter.+", "\\1", data[which(data$source=="cointelegraph")][grep("Subscribe to the Finance Redefined newsletter",  data[which(data$source=="cointelegraph")]$text)]$text)
 
 # TODO: Clean updated footer
+# TODO: Check whether cleaning is necessary for other data sources
 
-# Export clean data
+# Export clean data ----
 write.csv(data, file = "data/all_articles.csv", row.names = F)
 
 # Check posts per month by media----
