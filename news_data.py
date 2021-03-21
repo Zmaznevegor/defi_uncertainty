@@ -40,7 +40,7 @@ def collect_data_decrypt(wp):
 
 
 # step equals to the results per page
-offsets = np.arange(0, 6250, 25).tolist()
+offsets = np.arange(0, 2000, 25).tolist()
 frames = []
 
 # Loop that goes through all the available news by shifting the offset
@@ -56,8 +56,13 @@ for i in offsets:
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
-result.to_csv(data_folder + '/decrypt.csv', index=False)
 
+# for the data update: check duplicates and combine data
+# old_data = pd.read_csv(data_folder + '/news/decrypt.csv')
+# result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+# result = result.append(old_data)
+# result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+# result.to_csv(data_folder + '/news/decrypt.csv', index=False)
 
 # Coindesk website data
 def collect_data_cd(wp):
@@ -121,7 +126,7 @@ def collect_data_cd(wp):
 
 
 # Page count is limited by news until 2016
-offsets = range(0, 1101)
+offsets = range(0, 210)
 frames = []
 
 # Loop that goes through all the available pages
@@ -138,6 +143,12 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/news/coindesk.csv', index=False)
 
+# for the data update: check duplicates and combine data
+# old_data = pd.read_csv(data_folder + '/news/coindesk.csv')
+# result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+# result = result.append(old_data)
+# result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+# result.to_csv(data_folder + '/news/coindesk.csv', index=False)
 
 # The Block scrapper
 def collect_data_block(wp):
@@ -159,7 +170,7 @@ def collect_data_block(wp):
 
 
 # Starts from page 1 and not 0 (!) to 359
-offsets = range(1, 359)
+offsets = range(1, 150)
 frames = []
 
 # Loop that goes through all the available pages
@@ -176,6 +187,12 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/news/block.csv', index=False)
 
+# for the data update: check duplicates and combine data
+old_data = pd.read_csv(data_folder + '/news/block.csv')
+result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+result = result.append(old_data)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.to_csv(data_folder + '/news/block.csv', index=False)
 
 # JSON scrapper with rendered content
 def collect_data_json(wp):
@@ -197,7 +214,7 @@ def collect_data_json(wp):
 
 
 # 1 to total of 163
-offsets = range(1, 164)
+offsets = range(1, 60)
 frames = []
 
 # Go through all the pages
@@ -214,10 +231,16 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/news/blockonomi.csv', index=False)
 
+# for the data update: check duplicates and combine data
+old_data = pd.read_csv(data_folder + '/news/blockonomi.csv')
+result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+result = result.append(old_data)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.to_csv(data_folder + '/news/blockonomi.csv', index=False)
 
 # Crypto News Flash scrapper
 # 1 to 106
-offsets = range(1, 107)
+offsets = range(1, 50)
 frames = []
 
 # Go through all the pages
@@ -234,9 +257,16 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/news/cnf.csv', index=False)
 
+# for the data update: check duplicates and combine data
+old_data = pd.read_csv(data_folder + '/news/cnf.csv')
+result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+result = result.append(old_data)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.to_csv(data_folder + '/news/cnf.csv', index=False)
+
 # News btc sraper
 # 1 to 975
-offsets = range(1, 976)
+offsets = range(1, 60)
 frames = []
 
 # Go through all the pages
@@ -253,9 +283,16 @@ for i in offsets:
 result = pd.concat(frames, ignore_index=True)
 result.to_csv(data_folder + '/news/newsbtc.csv', index=False)
 
+# for the data update: check duplicates and combine data
+old_data = pd.read_csv(data_folder + '/news/newsbtc.csv')
+result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+result = result.append(old_data)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.to_csv(data_folder + '/news/newsbtc.csv', index=False)
+
 # Cryptoslate srapper
 # 1 to 206
-offsets = range(1, 207)
+offsets = range(1, 40)
 frames = []
 
 # Go through all the pages
@@ -270,6 +307,13 @@ for i in offsets:
 
 # Combining and exporting all the results
 result = pd.concat(frames, ignore_index=True)
+result.to_csv(data_folder + '/news/slate.csv', index=False)
+
+# for the data update: check duplicates and combine data
+old_data = pd.read_csv(data_folder + '/news/slate.csv')
+result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+result = result.append(old_data)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
 result.to_csv(data_folder + '/news/slate.csv', index=False)
 
 # Cryptonews HTML srapper
@@ -305,12 +349,17 @@ result = pd.DataFrame(columns=['date', 'text'])
 result['date'] = date
 result['text'] = texts
 
+# for the data update: check duplicates and combine data
+old_data = pd.read_csv(data_folder + '/news/cryptonews.csv')
+result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+result = result.append(old_data)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
 result.to_csv(data_folder + '/news/cryptonews.csv', index=False)
 
 # News Bitcoin HTML srapper
 # Collect all the article links
 links = []
-for i in range(1, 1380):
+for i in range(1, 135):
     driver.get(f'https://news.bitcoin.com/page/{i}/')
     list = driver.find_elements_by_xpath('//body//div[contains(@id, "td-outer-wrap")]//div[contains(@class, "td-main-content-wrap")]//div[contains(@class, "td-pb-article-list")]//div[contains(@class, "td-pb-row")]//div[contains(@class, "td-main-content")]//div[contains(@class, "td-ss-main-content")]//div[contains(@class, "standard__article standard__article__grid")]//div[contains(@class, "story story--medium")]//div[contains(@class, "story--medium__info")]/a')
 
@@ -333,55 +382,34 @@ result = pd.DataFrame(columns=['date', 'text'])
 result['date'] = date
 result['text'] = texts
 
+# for the data update: check duplicates and combine data
+old_data = pd.read_csv(data_folder + '/news/newsbitcoin.csv')
+result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+result = result.append(old_data)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
 result.to_csv(data_folder + '/news/newsbitcoin.csv', index=False)
-
-# Ambcrypto html srapper
-# Load the page all the way through
-driver.get('https://eng.ambcrypto.com/category/news/')
-
-while True:
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    driver.find_element_by_xpath('//a[contains(@class, "mvp-inf-more-but")]').click()
-    time.sleep(1)
-
-# Collect all the article links
-list = driver.find_elements_by_xpath('//li[contains(@class, "mvp-blog-story-wrap left relative infinite-post")]/a')
-
-links=[]
-for i in list:
-    links.append(i.get_attribute('href'))
-
-# Collect all the texts and dates
-texts = []
-date = []
-for i in links:
-    driver.get(i)
-    time.sleep(1)
-    article = driver.find_elements_by_xpath('//div[contains(@id, "mvp-content-main")]')[0].text
-    time_published = driver.find_elements_by_xpath('//span[contains(@class, "mvp-post-date updated")]/time')[0].get_attribute("datetime")
-    texts.append(article)
-    date.append(time_published)
-
-# Combine as dataframe
-result = pd.DataFrame(columns=['date', 'text'])
-result['date'] = date
-result['text'] = texts
-
-result.to_csv(data_folder + '/news/ambcrpyto.csv', index=False)
 
 # Cointelegraph html srapper
 # Load the page all the way through
 driver.get('https://cointelegraph.com/')
+
+while True:
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(1)
+    driver.find_elements_by_xpath('//button[contains(@class, "posts-listing__more-btn")]')[0].click()
+
+# Collect all the links
+list = driver.find_elements_by_xpath('//a[contains(@class, "post-card__title-link")]')
 links=[]
 for i in list:
     links.append(i.get_attribute('href'))
-
 news= [x for x in links if "https://cointelegraph.com/news/" in x]
 
 # Collect texts and dates
 texts = []
 date = []
-for i in news:
+
+for i in news[3200:3840]:
     driver.get(i)
     time.sleep(0.5)
     article = driver.find_elements_by_xpath('//div[contains(@class, "post-content")]')[0].text
@@ -396,24 +424,41 @@ result['text'] = texts
 
 result.to_csv(data_folder + '/news/cointelegraph.csv', index=False)
 
+# for the data update: check duplicates and combine data
+old_data = pd.read_csv(data_folder + '/news/cointelegraph.csv')
+result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
+result = result.append(old_data)
+result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.to_csv(data_folder + '/news/cointelegraph.csv', index=False)
+
 # Stop webdriver
 driver.quit()
 
+# Fix newsbitcoin data
+df = pd.read_csv(f'data/news/newsbitcoin.csv')
+df['date'][0:7] = 'Mar 19, 2021'
+df['date'][7:17] = 'Mar 18, 2021'
+df['date'][17:29] = 'Mar 17, 2021'
+df['date'][29:37] = 'Mar 16, 2021'
+df['date'][37:43] = 'Mar 15, 2021'
+df['date'][43:44] = 'Mar 14, 2021'
+
+df['date'][1206:1211] = 'Nov 4, 2020'
+df['date'][1211:1216] = 'Nov 3, 2020'
+df['date'][1216:1221] = 'Nov 2, 2020'
+df['date'][1221:1227] = 'Nov 1, 2020'
+df['date'][1227:1230] = 'Oct 31, 2020'
+
+df.to_csv(data_folder + '/news/newsbitcoin.csv', index = False)
+
 # Combine all dataframes into one
 frames = []
-for i in listdir(r'data'):
-    df = pd.read_csv(f'data/{i}')
+for i in listdir(data_folder + '/news/'):
+    df = pd.read_csv(f'data/news/{i}')
     source = ''.join(i.split())[:-4]
     df['source'] = source
-    if source == 'newsbitcoin':
-        df['date'][0:5] = 'Nov 5, 2020'
-        df['date'][5:10] = 'Nov 4, 2020'
-        df['date'][10:15] = 'Nov 3, 2020'
-        df['date'][15:21] = 'Nov 2, 2020'
-        df['date'][21:24] = 'Nov 1, 2020'
     df.date = pd.to_datetime(df.date, infer_datetime_format=True, utc = True)
     frames.append(df)
-
 
 # Sort data and clean for duplicates and deleted news
 result = pd.concat(frames, ignore_index=True)
