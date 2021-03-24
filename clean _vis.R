@@ -2,19 +2,23 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(ggrepel)
 library(zoo)
 library(fpp3)
 library(tsibble)
+library(stargazer)
 
 theme_set(theme_minimal())
 
 data <- read.csv("data/all_articles.csv") %>% 
   mutate(date = as.Date(date, format = "%Y-%m-%d"))
 
-# TODO: update TVL data
+# TODO: update TVL data with Ether scan https://etherscan.io/apis#tokens 
 # tvl <- fread("data/defi/tvl_data.csv")
 
 # Cleaning text data ----
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
 ## News Bitcoin ----
 # Articles that do not have the end line: sponsored and ads that should be dropped
 misc <- data[which(data$source=="newsbitcoin"),][grep("comments.+?below", data[which(data$source =="newsbitcoin"),"text"]),] %>% 
@@ -24,8 +28,6 @@ misc <- data[which(data$source=="newsbitcoin"),][grep("comments.+?below", data[w
 # For the newsdata, gsub text to drop the text that goes after the end line
 # TODO: paraphrase the following line
 data[which(data$source=="newsbitcoin"),][grep("comments.+?below", data[which(data$source =="newsbitcoin"),"text"]),]$text <- gsub("(.+?)comments.+?below(.+)", "\\1", data[which(data$source=="newsbitcoin"),][grep("comments.+?below", data[which(data$source =="newsbitcoin"),"text"]),]$text)
-
-'%!in%' <- function(x,y)!('%in%'(x,y))
 
 data  <-  data %>% 
   filter(data$text %!in% misc$text)
@@ -72,18 +74,42 @@ posts_per_m <- data %>%
   count(source)
 
 # Line chart per month for all
-ggplot(posts_per_m, aes(x = month, y=n, group = source)) + 
-  geom_line(aes(color=source))+
-  scale_y_continuous(limits = c(0, 1100))+
-  labs(x = "Date",
-       y = "Number of articles per month",
-       color = "Media")
+media_names <- c(`block` = "The Block",
+                 `blockonomi` = "Blockonomi",
+                 `cnf` = "Crypto News Flash",
+                 `coindesk` = "Coindesk",
+                 `cointelegraph` = "Cointelegraph",
+                 `cryptonews` = "Crypto News",
+                 `newsbitcoin` = "News Bitcoin",
+                 `newsbtc` = "NewsBTC",
+                 `slate` = "CryptoSlate")
 
+ggplot(posts_per_m, aes(x = as.Date(month), y=n, group = source)) +
+  geom_col(aes(fill=source), colour = "black", size = 0.2) +
+  geom_hline(aes(yintercept = mean(n), colour = "red"), size = 0.4)+
+  facet_wrap(source~., labeller = as_labeller(media_names)) +
+  labs(#title= "Monthly articles per media",
+       #subtitle = "Based on the cleaned and preprocessed data",
+       x = "", y = "Articles per month") +
+  theme_bw() +
+  theme(legend.position = "none", 
+        strip.background = element_rect(fill = "#FFFFFF"),
+        strip.text.x = element_text(size = 10, face = "bold"))
+
+data %>% 
+  mutate(month = as.yearmon(data$date)) %>% 
+  group_by(source) %>% 
+  summarise(n = n()) %>% 
+  left_join(posts_per_m %>% group_by(source) %>% summarise(avg_art_m = round(mean(n)),
+                                                           min = min(n),
+                                                           max = max(n)) %>% ungroup(), by = "source") %>% 
+  stargazer(type ="text", summary = F)
+  
 
 # EPU Construction ----
 ## Naive base method ----
 defi_words = " defi | decentrali(z|s)ed finance"
-defi_service_words = " decentralized borrow| decentralized lend| stablecoin| decentralised exchange| decentralized exchange| DEX | yield farm| DEXes| decentralized oracle"
+defi_service_words = " decentralized borrow| decentralized lend| stablecoin| decentrali(s|z)ed exchange| DEX | yield farm| DEXes | decentralized oracle"
 defi = grep(defi_words, data$text, ignore.case = T)
 defi_service = grep(defi_service_words, data$text, ignore.case = T)
 all_defi <- union(defi,defi_service)
@@ -94,40 +120,31 @@ defi_reg <-  grep(" regulat| \bregulation\b|\blegislation\b\regulatory\b|\bdefic
 defi_reg <- defi[defi_reg,]
 
 defi_unc <-  grep(" uncertain", defi_reg$text, ignore.case = T)
-epu_base <- defi_reg[defi_unc,]
-
-econ <- grep(" econom", epu_base$text, ignore.case = T)
-a <- epu_base[econ,]
-
-# Try unnest_tokens approach (!)
+pu_base <- defi_reg[defi_unc,]
+econ <- grep(" econom", pu_base$text, ignore.case = T)
+epu_base <- pu_base[econ,]
 
 ### Normalization and standartisation ----
 # Convert to weeks
-epu_wbase <- a %>%
+epu_base_yw <- epu_base %>%
   mutate(yw = yearweek(date)) %>% 
   group_by(yw, source) %>% 
   summarise(n_articles = n())
 
-ggplot(epu_wbase, aes(x = yw, y = n_articles))+geom_line()
+ggplot(epu_base_yw, aes(x = yw, y = n_articles))+geom_line()
 
-wdata <- data %>% 
+data_yw <- data %>% 
   mutate(yw = yearweek(date)) %>% 
   group_by(yw, source) %>% 
   summarise(n_articles = n())
 
-ggplot(wdata, aes(x = yw, y = n_articles))+geom_line()
+ggplot(data_yw, aes(x = yw, y = n_articles))+geom_line()
 
-scale <- left_join(wdata, epu_wbase, by = c("yw", "source")) %>% 
+scale <- left_join(data_yw, epu_base_yw, by = c("yw", "source")) %>% 
   rename(n_articles = n_articles.x,
          epu_articles = n_articles.y) %>% 
   replace_na(list(epu_articles = 0)) %>% 
-  filter(yw > yearweek("2017 W51")
-         #yw <yearweek("2020 W45")
-         )
-
-a <- defi %>% mutate(yw = yearweek(date)) %>% 
-  group_by(yw) %>% 
-  summarise(n_art = n())
+  filter(yw > yearweek("2017 W51"))
 
 ggplot(scale, aes(x = yw, y = epu_articles, colour = source))+ geom_line()
 
@@ -136,22 +153,19 @@ wk <- scale %>%
   summarise(articles = sum(n_articles),
             epu_a = sum(epu_articles))
 
-ggplot(wk, aes(x=yw, y = epu_a))+geom_line()
-ggplot(wk, aes(x=yw, y = articles))+geom_line()
-
 t1 <- wk$yw[1:round(0.8*length(wk$yw))]
 t2 <- wk$yw[(length(t1)+1):length(wk$yw)]
 
-a <- scale %>% 
+base <- scale %>% 
   mutate(scaled = epu_articles/n_articles)
-sd1 <- with(a, sd(scaled[scale$yw %in% t1]))
+sd1 <- with(base, sd(scaled[scale$yw %in% t1]))
 
-m <- a %>% mutate(stnd = scaled/sd1) %>% 
+m <- base %>% mutate(stnd = scaled/sd1) %>% 
   group_by(yw) %>% 
   summarise(m = mean(stnd)) %>% 
   filter(yw %in% t2)
 
-epu <- a %>% 
+epu <- base %>% 
   mutate(stnd = scaled/sd1) %>% 
   group_by(yw) %>% 
   summarise(stnd1 = mean(stnd)) %>% 
@@ -165,15 +179,18 @@ label <- data.frame(
   label = c("peak one", "peak two")
 )
 
-ggplot(epu, aes(x = yw))+
+ggplot(epu, aes(x = as.Date(yw)))+
   geom_line(data = epu, aes(y = norm))+
   #coord_cartesian(xlim = c("2018-09-22", "2019-01-01"))+
   # geom_line(data = epu, aes(y = stnd1*100, colour = "Standar`dised"))+
   labs(title = "Weekly DeFi Uncertainty Index",
        y = " Economic Policy Uncertainty",
-       x = "Date")
-
+       x = "")
 
 epu %>% 
   filter(norm != 0) %>% 
   summarise(mean = mean(norm))
+
+data %>% 
+  group_by(source) %>% 
+  summarise(n = n())

@@ -156,10 +156,9 @@ def collect_data_block(wp):
     content_text = []
 
     # same range as posts per page
-    for j in wp['posts']:
+    for j in webpage['posts']:
         date.append(j['published'])
-        body = re.sub('\<.+?\>|\<\/.+?\>', ' ', j['body'])  # clean code snippets
-        content_text.append(body)
+        content_text.append(j['body'])
 
     df = pd.DataFrame(columns=['date', 'text'])
 
@@ -170,15 +169,15 @@ def collect_data_block(wp):
 
 
 # Starts from page 1 and not 0 (!) to 359
-offsets = range(1, 150)
+offsets = range(1, 140)
 frames = []
 
 # Loop that goes through all the available pages
 for i in offsets:
     time.sleep(randrange(3))
     print(i)
-    cmc = requests.get(f'https://www.theblockcrypto.com/wp-json/v1/posts/homepage?page={i}&posts_per_page=20')
-    time.sleep(3)
+    cmc = requests.get(f'https://www.theblockcrypto.com/wp-json/v1/posts/?post_type=&page={i}&posts_per_page=20')
+    time.sleep(1)
     webpage = cmc.json()
     df = collect_data_block(webpage)
     frames.append(df)
@@ -214,15 +213,15 @@ def collect_data_json(wp):
 
 
 # 1 to total of 163
-offsets = range(1, 60)
+offsets = range(1, 172)
 frames = []
 
 # Go through all the pages
 for i in offsets:
-    time.sleep(randrange(3))
+    time.sleep(randrange(2))
     print(i)
     cmc = requests.get(f'https://blockonomi.com/wp-json/wp/v2/posts?page={i}&order=desc&orderby=date&per_page=25')
-    time.sleep(3)
+    time.sleep(1)
     webpage = cmc.json()
     df = collect_data_json(webpage)
     frames.append(df)
@@ -239,16 +238,16 @@ result.drop_duplicates(subset=['text'], keep=False,inplace=True)
 result.to_csv(data_folder + '/news/blockonomi.csv', index=False)
 
 # Crypto News Flash scrapper
-# 1 to 106
-offsets = range(1, 50)
+# 1 to 150
+offsets = range(1, 150)
 frames = []
 
 # Go through all the pages
 for i in offsets:
-    time.sleep(randrange(3))
+    time.sleep(randrange(2))
     print(i)
     cmc = requests.get(f'https://www.crypto-news-flash.com/wp-json/wp/v2/posts?order=desc&orderby=date&per_page=25&page={i}')
-    time.sleep(3)
+    time.sleep(1)
     webpage = cmc.json()
     df = collect_data_json(webpage)
     frames.append(df)
@@ -292,15 +291,15 @@ result.to_csv(data_folder + '/news/newsbtc.csv', index=False)
 
 # Cryptoslate srapper
 # 1 to 206
-offsets = range(1, 40)
+offsets = range(1, 233)
 frames = []
 
 # Go through all the pages
 for i in offsets:
-    time.sleep(randrange(3))
+    time.sleep(randrange(2))
     print(i)
     cmc = requests.get(f'https://cryptoslate.com/wp-json/wp/v2/posts?order=desc&orderby=date&per_page=25&page={i}')
-    time.sleep(3)
+    time.sleep(1)
     webpage = cmc.json()
     df = collect_data_json(webpage)
     frames.append(df)
