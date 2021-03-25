@@ -234,7 +234,7 @@ result.to_csv(data_folder + '/news/blockonomi.csv', index=False)
 old_data = pd.read_csv(data_folder + '/news/blockonomi.csv')
 result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
 result = result.append(old_data)
-result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.drop_duplicates(subset=['text'], inplace=True)
 result.to_csv(data_folder + '/news/blockonomi.csv', index=False)
 
 # Crypto News Flash scrapper
@@ -260,7 +260,7 @@ result.to_csv(data_folder + '/news/cnf.csv', index=False)
 old_data = pd.read_csv(data_folder + '/news/cnf.csv')
 result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
 result = result.append(old_data)
-result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.drop_duplicates(subset=['text'], inplace=True)
 result.to_csv(data_folder + '/news/cnf.csv', index=False)
 
 # News btc sraper
@@ -286,7 +286,7 @@ result.to_csv(data_folder + '/news/newsbtc.csv', index=False)
 old_data = pd.read_csv(data_folder + '/news/newsbtc.csv')
 result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
 result = result.append(old_data)
-result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.drop_duplicates(subset=['text'], inplace=True)
 result.to_csv(data_folder + '/news/newsbtc.csv', index=False)
 
 # Cryptoslate srapper
@@ -352,7 +352,7 @@ result['text'] = texts
 old_data = pd.read_csv(data_folder + '/news/cryptonews.csv')
 result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
 result = result.append(old_data)
-result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.drop_duplicates(subset=['text'], inplace=True)
 result.to_csv(data_folder + '/news/cryptonews.csv', index=False)
 
 # News Bitcoin HTML srapper
@@ -385,7 +385,7 @@ result['text'] = texts
 old_data = pd.read_csv(data_folder + '/news/newsbitcoin.csv')
 result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
 result = result.append(old_data)
-result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.drop_duplicates(subset=['text'] ,inplace=True)
 result.to_csv(data_folder + '/news/newsbitcoin.csv', index=False)
 
 # Cointelegraph html srapper
@@ -408,9 +408,9 @@ news= [x for x in links if "https://cointelegraph.com/news/" in x]
 texts = []
 date = []
 
-for i in news[3200:3840]:
+for i in news[len(date):11636]:
     driver.get(i)
-    time.sleep(0.5)
+    time.sleep(randrange(2))
     article = driver.find_elements_by_xpath('//div[contains(@class, "post-content")]')[0].text
     time_published = driver.find_elements_by_xpath('//div[contains(@class, "post-meta__publish-date")]/time')[0].get_attribute("datetime")
     texts.append(article)
@@ -427,7 +427,7 @@ result.to_csv(data_folder + '/news/cointelegraph.csv', index=False)
 old_data = pd.read_csv(data_folder + '/news/cointelegraph.csv')
 result[~result.apply(tuple,1).isin(old_data.apply(tuple,1))]
 result = result.append(old_data)
-result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.drop_duplicates(subset=['text'], inplace=True)
 result.to_csv(data_folder + '/news/cointelegraph.csv', index=False)
 
 # Stop webdriver
