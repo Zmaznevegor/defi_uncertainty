@@ -7,6 +7,7 @@ library(zoo)
 library(fpp3)
 library(tsibble)
 library(stargazer)
+library(caret)
 
 theme_set(theme_minimal())
 
@@ -62,6 +63,9 @@ data[which(data$source=="block"),"text"] <- gsub("<.+?>","", data[which(data$sou
 ## NewsBTC ----
 data[which(data$source=="newsbtc"),][grep("Related Reading",  data[which(data$source=="newsbtc"), "text"]),]$text <- gsub("[[:space:]](Related Reading).+?[[:space:]][[:space:]][[:space:]]", "", data[which(data$source=="newsbtc"),][grep("Related Reading",  data[which(data$source=="newsbtc"), "text"]),]$text)
 
+## Decrypt ----
+
+
 # Export clean data ----
 write.csv(data, file = "data/all_articles.csv", row.names = F)
 
@@ -75,7 +79,7 @@ posts_per_m <- data %>%
 
 # Line chart per month for all
 media_names <- c(`block` = "The Block",
-                 `blockonomi` = "Blockonomi",
+                 `decrypt` = "Decrypt",
                  `cnf` = "Crypto News Flash",
                  `coindesk` = "Coindesk",
                  `cointelegraph` = "Cointelegraph",
@@ -103,23 +107,30 @@ data %>%
   left_join(posts_per_m %>% group_by(source) %>% summarise(avg_art_m = round(mean(n)),
                                                            min = min(n),
                                                            max = max(n)) %>% ungroup(), by = "source") %>% 
+  arrange(desc(n))%>% 
+  rename("Number of articles" = n,
+         "Avg per month" = avg_art_m,
+         "Min" = min,
+         "Max" = max) %>% 
   stargazer(type ="text", summary = F)
   
 
 # EPU Construction ----
 ## Naive base method ----
+
 defi_words = " defi | decentrali(z|s)ed finance"
 defi_service_words = " decentralized borrow| decentralized lend| stablecoin| decentrali(s|z)ed exchange| DEX | yield farm| DEXes | decentralized oracle"
-defi = grep(defi_words, data$text, ignore.case = T)
-defi_service = grep(defi_service_words, data$text, ignore.case = T)
+defi <-  grep(defi_words, data$text, ignore.case = T)
+defi_service <-  grep(defi_service_words, data$text, ignore.case = T)
 all_defi <- union(defi,defi_service)
 
-defi <- data[all_defi,]
+defi <- data[all_defi,] %>% 
+  filter(source != "blockonomi")
 
 defi_reg <-  grep(" regulat| \bregulation\b|\blegislation\b\regulatory\b|\bdeficit\b|regulatory|White House|Federal Reserve|\bCongress\b| supreme court| government| European Commission|legislat| European Central Bank|\bESMA\b|\bECB\b|\bFCA\b|\bEBA\b|\bjurisdiction\b|\bSEC\b|\bcompliance\b", defi$text, ignore.case = T)
 defi_reg <- defi[defi_reg,]
 
-defi_unc <-  grep(" uncertain", defi_reg$text, ignore.case = T)
+defi_unc <-  grep("uncertain", defi_reg$text, ignore.case = T)
 pu_base <- defi_reg[defi_unc,]
 econ <- grep(" econom", pu_base$text, ignore.case = T)
 epu_base <- pu_base[econ,]
@@ -144,7 +155,8 @@ scale <- left_join(data_yw, epu_base_yw, by = c("yw", "source")) %>%
   rename(n_articles = n_articles.x,
          epu_articles = n_articles.y) %>% 
   replace_na(list(epu_articles = 0)) %>% 
-  filter(yw > yearweek("2017 W51"))
+  filter(yw > yearweek("2017 W51"),
+         yw < yearweek("2021 W12"))
 
 ggplot(scale, aes(x = yw, y = epu_articles, colour = source))+ geom_line()
 
@@ -174,23 +186,51 @@ epu <- base %>%
 ### Plotting naive index ----
 # Annotations
 label <- data.frame(
-  date = c(55, 80), 
-  eruptions = c(2, 4.3), 
-  label = c("peak one", "peak two")
-)
+  yw = c(as.Date("2020-03-22"), as.Date("2019-07-18"), as.Date("2018-01-22"),
+         as.Date("2020-11-06"), as.Date("2020-05-05"), as.Date("2019-09-10")), 
+  norm = c(610, 435, 420,
+           360, 280, 270), 
+  label = c(paste("COVID-19", sep = "\n"),
+            paste("Facebook testifies", "about Libra", sep = "\n"),
+            paste("Overregulation", "from South Korea", sep = "\n"),
+            paste("US elections", sep = "\n"),
+            paste("ECON study on", "cryptoassets", sep = "\n"),
+            paste("PBoC announces", "plan to launch", "digital currency", sep = "\n")))
 
-ggplot(epu, aes(x = as.Date(yw)))+
-  geom_line(data = epu, aes(y = norm))+
+ggplot(epu, aes(x = as.Date(yw), y = norm))+
+  geom_line(data = epu)+
   #coord_cartesian(xlim = c("2018-09-22", "2019-01-01"))+
   # geom_line(data = epu, aes(y = stnd1*100, colour = "Standar`dised"))+
-  labs(title = "Weekly DeFi Uncertainty Index",
+  geom_text(data = label, aes(label = label), size = 4)+
+  labs(#title = "Weekly DeFi Uncertainty Index",
        y = " Economic Policy Uncertainty",
        x = "")
 
-epu %>% 
-  filter(norm != 0) %>% 
-  summarise(mean = mean(norm))
 
-data %>% 
-  group_by(source) %>% 
-  summarise(n = n())
+a <- epu_base %>% 
+  mutate(yw = yearweek(date)) %>% 
+  filter(yw == yearweek("2020 W16"))
+
+
+
+# Testing uncertainty sampling ----
+source(file = "uncertainty_sampling.R")
+
+## Testing function with the sample data ----
+data <- subset(iris, subset = (Species != "virginica"))
+data$Species <- droplevels(data$Species)
+
+set.seed(123)
+idx <- createDataPartition(data$Species, p = 0.66, list = FALSE)
+train <- data[idx, ]
+test <- data[-idx, ]
+
+fit_control <- trainControl(method = "cv", number = 5, classProbs = TRUE)
+x <- train[, 1:4]
+y <- train[, 5]
+y[20:23] <- NA
+
+
+l <- uncertainty_sampling(x, y,
+                          uncertainty = "entropy", num_query = 2,
+                          classifier = "svmLinear", trControl = fit_control)

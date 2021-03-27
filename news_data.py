@@ -40,16 +40,16 @@ def collect_data_decrypt(wp):
 
 
 # step equals to the results per page
-offsets = np.arange(0, 2000, 25).tolist()
+offsets = np.arange(0, 8125, 25).tolist()
 frames = []
 
 # Loop that goes through all the available news by shifting the offset
 for i in offsets:
-    time.sleep(randrange(5))
+    time.sleep(randrange(1))
     print(i)
     cmc = requests.get(
         f'https://api.decrypt.co/content/posts?_minimal=true&category=news&lang=en-US&offset={i}&order=desc&orderby=date&per_page=25')
-    time.sleep(5)
+    time.sleep(1)
     webpage = cmc.json()
     df = collect_data_decrypt(webpage)
     frames.append(df)
@@ -464,7 +464,7 @@ result = pd.concat(frames, ignore_index=True)
 result['date'] = result['date'].dt.date
 result = result.sort_values("date", ascending=False)
 result = result.dropna(subset=['text'])
-result.drop_duplicates(subset=['text'], keep=False,inplace=True)
+result.drop_duplicates(subset=['text'],inplace=True)
 
 result.to_csv(data_folder + '/all_articles.csv', index=False)
 
