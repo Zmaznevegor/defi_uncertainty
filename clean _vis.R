@@ -77,7 +77,7 @@ posts_per_m <- data %>%
   arrange(month) %>% 
   count(source)
 
-# Line chart per month for all
+# Bar chart per month for all
 media_names <- c(`block` = "The Block",
                  `decrypt` = "Decrypt",
                  `cnf` = "Crypto News Flash",
@@ -100,6 +100,7 @@ ggplot(posts_per_m, aes(x = as.Date(month), y=n, group = source)) +
         strip.background = element_rect(fill = "#FFFFFF"),
         strip.text.x = element_text(size = 10, face = "bold"))
 
+# TAble with summary data
 data %>% 
   mutate(month = as.yearmon(data$date)) %>% 
   group_by(source) %>% 
@@ -113,124 +114,3 @@ data %>%
          "Min" = min,
          "Max" = max) %>% 
   stargazer(type ="text", summary = F)
-  
-
-# EPU Construction ----
-## Naive base method ----
-
-defi_words = " defi | decentrali(z|s)ed finance"
-defi_service_words = " decentralized borrow| decentralized lend| stablecoin| decentrali(s|z)ed exchange| DEX | yield farm| DEXes | decentralized oracle"
-defi <-  grep(defi_words, data$text, ignore.case = T)
-defi_service <-  grep(defi_service_words, data$text, ignore.case = T)
-all_defi <- union(defi,defi_service)
-
-defi <- data[all_defi,] %>% 
-  filter(source != "blockonomi")
-
-defi_reg <-  grep(" regulat| \bregulation\b|\blegislation\b\regulatory\b|\bdeficit\b|regulatory|White House|Federal Reserve|\bCongress\b| supreme court| government| European Commission|legislat| European Central Bank|\bESMA\b|\bECB\b|\bFCA\b|\bEBA\b|\bjurisdiction\b|\bSEC\b|\bcompliance\b", defi$text, ignore.case = T)
-defi_reg <- defi[defi_reg,]
-
-defi_unc <-  grep("uncertain", defi_reg$text, ignore.case = T)
-pu_base <- defi_reg[defi_unc,]
-econ <- grep(" econom", pu_base$text, ignore.case = T)
-epu_base <- pu_base[econ,]
-
-### Normalization and standartisation ----
-# Convert to weeks
-epu_base_yw <- epu_base %>%
-  mutate(yw = yearweek(date)) %>% 
-  group_by(yw, source) %>% 
-  summarise(n_articles = n())
-
-ggplot(epu_base_yw, aes(x = yw, y = n_articles))+geom_line()
-
-data_yw <- data %>% 
-  mutate(yw = yearweek(date)) %>% 
-  group_by(yw, source) %>% 
-  summarise(n_articles = n())
-
-ggplot(data_yw, aes(x = yw, y = n_articles))+geom_line()
-
-scale <- left_join(data_yw, epu_base_yw, by = c("yw", "source")) %>% 
-  rename(n_articles = n_articles.x,
-         epu_articles = n_articles.y) %>% 
-  replace_na(list(epu_articles = 0)) %>% 
-  filter(yw > yearweek("2017 W51"),
-         yw < yearweek("2021 W12"))
-
-ggplot(scale, aes(x = yw, y = epu_articles, colour = source))+ geom_line()
-
-wk <- scale %>% 
-  group_by(yw) %>% 
-  summarise(articles = sum(n_articles),
-            epu_a = sum(epu_articles))
-
-t1 <- wk$yw[1:round(0.8*length(wk$yw))]
-t2 <- wk$yw[(length(t1)+1):length(wk$yw)]
-
-base <- scale %>% 
-  mutate(scaled = epu_articles/n_articles)
-sd1 <- with(base, sd(scaled[scale$yw %in% t1]))
-
-m <- base %>% mutate(stnd = scaled/sd1) %>% 
-  group_by(yw) %>% 
-  summarise(m = mean(stnd)) %>% 
-  filter(yw %in% t2)
-
-epu <- base %>% 
-  mutate(stnd = scaled/sd1) %>% 
-  group_by(yw) %>% 
-  summarise(stnd1 = mean(stnd)) %>% 
-  mutate(norm = stnd1/mean(m$m)*100)
-
-### Plotting naive index ----
-# Annotations
-label <- data.frame(
-  yw = c(as.Date("2020-03-22"), as.Date("2019-07-18"), as.Date("2018-01-22"),
-         as.Date("2020-11-06"), as.Date("2020-05-05"), as.Date("2019-09-10")), 
-  norm = c(610, 435, 420,
-           360, 280, 270), 
-  label = c(paste("COVID-19", sep = "\n"),
-            paste("Facebook testifies", "about Libra", sep = "\n"),
-            paste("Overregulation", "from South Korea", sep = "\n"),
-            paste("US elections", sep = "\n"),
-            paste("ECON study on", "cryptoassets", sep = "\n"),
-            paste("PBoC announces", "plan to launch", "digital currency", sep = "\n")))
-
-ggplot(epu, aes(x = as.Date(yw), y = norm))+
-  geom_line(data = epu)+
-  #coord_cartesian(xlim = c("2018-09-22", "2019-01-01"))+
-  # geom_line(data = epu, aes(y = stnd1*100, colour = "Standar`dised"))+
-  geom_text(data = label, aes(label = label), size = 4)+
-  labs(#title = "Weekly DeFi Uncertainty Index",
-       y = " Economic Policy Uncertainty",
-       x = "")
-
-
-a <- epu_base %>% 
-  mutate(yw = yearweek(date)) %>% 
-  filter(yw == yearweek("2020 W16"))
-
-
-
-# Testing uncertainty sampling ----
-source(file = "uncertainty_sampling.R")
-
-## Testing function with the sample data ----
-data <- subset(iris, subset = (Species != "virginica"))
-data$Species <- droplevels(data$Species)
-
-set.seed(123)
-idx <- createDataPartition(data$Species, p = 0.66, list = FALSE)
-train <- data[idx, ]
-test <- data[-idx, ]
-
-fit_control <- trainControl(method = "cv", number = 5, classProbs = TRUE)
-x <- train[, 1:4]
-y <- train[, 5]
-y[20:23] <- NA
-
-
-l <- uncertainty_sampling(x, y,
-                          uncertainty = "entropy", num_query = 2,
-                          classifier = "svmLinear", trControl = fit_control)

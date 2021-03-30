@@ -101,3 +101,7 @@ uncertainty_sampling <- function(x, y, uncertainty="entropy", classifier,
   
   list(query=query, posterior=posterior, uncertainty=obs_uncertainty)
 }
+
+query_oracle <- function(i, y_truth) {
+  as.vector(y_truth[i])
+}
