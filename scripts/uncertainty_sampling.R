@@ -105,3 +105,21 @@ uncertainty_sampling <- function(x, y, uncertainty="entropy", classifier,
 query_oracle <- function(i, y_truth) {
   as.vector(y_truth[i])
 }
+
+lab <- function(x, n){
+  # Start the count
+  p <- 1
+  start <- min(which(is.na(x$y)))
+  end <-start + n-1
+  
+  # Start loop with response variable updates
+  for (i in c(start:end)) {
+    print(paste(p, "/", n))
+    message((paste("Article from", x$source[i])))
+    cat(paste(x$text[i], sep ="\n"), "\n", "\n")
+    x$y[i] <- menu(c("Yes", # equals 1, otherwise 0
+                     "No"), title="Is it related to DeFi EPU?")
+    p <- p+1
+  }
+  return(x)
+}
