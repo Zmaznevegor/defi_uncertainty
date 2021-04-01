@@ -111,7 +111,7 @@ a <- epu_base %>%
 
 ## Active learner approach ----
 # Import functions
-source(file = "uncertainty_sampling.R")
+source(file = "scripts/uncertainty_sampling.R")
 
 # Add response to data
 data$y <- NA
@@ -126,21 +126,7 @@ defi_econ <- defi[grep(" econom", defi$text, ignore.case = T),] %>%
   mutate(id = row_number()) %>% 
   relocate(id)
 
-x <- head(defi_econ)
-
-label_data <- function(x, n){
-  p <- 0
-  for (i in c(1:n)) {
-    print(paste(p, "/", n))
-    message((paste("Article from", x$source[i])))
-    cat(paste(x[which(is.na(x$y)),"text"][i], sep ="\n"))
-    x[which(is.na(x$y)),"y"][i] <- readline(prompt="Is it related to EPU: ")
-    p <- p+1
-  }
-  return(x)
-}
-
-defi_econ_l <- label_data(defi_econ, 20)
+defi_lab <- lab(defi_econ, 20)
 
 
 # TESTING ----
