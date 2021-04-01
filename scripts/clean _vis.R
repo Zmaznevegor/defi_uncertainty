@@ -21,45 +21,40 @@ data <- read.csv("data/all_articles.csv") %>%
 
 ## News Bitcoin ----
 # Articles that do not have the end line: sponsored and ads that should be dropped
-misc <- data[which(data$source=="newsbitcoin"),][grep("comments.+?below", data[which(data$source =="newsbitcoin"),"text"]),] %>% 
-  anti_join(data[which(data$source=="newsbitcoin"),], by = "text")
+misc <- data %>% 
+  filter(source == "newsbitcoin") %>% 
+  filter(grepl("comments.+?below|in.the.comments.section", .$text)) %>% 
+  anti_join(data[which(data$source=="newsbitcoin"),], ., by = "text")
 
 # Fix footer for news bitcoin (recommendation articles)
-data[which(data$source=="newsbitcoin"),] <- a <- data %>% 
+data[which(data$source=="newsbitcoin"),] <- data %>% 
   filter(source == "newsbitcoin") %>% 
-  mutate(text = ifelse(grepl("comments.+?below", .$text), gsub("(.+?)comments.+?below(.+)", "\\1", .$text), no =.$text))
+  mutate(text = ifelse(grepl("comments.+?below|in.the.comments.section", .$text), gsub("(.+?)(comments.+?below|in.the.comments.section)(.+)", "\\1", .$text), no =.$text))
 
 data  <-  data %>% 
   filter(data$text %!in% misc$text)
 
 ## Cryptonews ----
-# gsub unecessary content
+# Fix footer
 data[which(data$source=="cryptonews"),] <- data %>% 
   filter(source == "cryptonews") %>% 
   mutate(text = ifelse(grepl("Learn more:|\n_____\n", .$text), gsub("(.+?)(Learn more:|\n_____\n)(.+)", "\\1", .$text), no =.$text))
 
-# Drop press releases
+# Drop press releases and ads
 misc <- data %>% 
   filter(source == "cryptonews") %>% 
-  filter(grepl("Disclaimer: The text below is a press release that was not written by Cryptonews.com", .$text))
+  filter(grepl("Disclaimer: The text below is a press release that was not written by Cryptonews.com", .$text)|
+           grepl("The text below is an advertorial article", .$text))
 
 data  <-  data %>% 
   filter(data$text %!in% misc$text)
 
-# Advertised materials
-misc <- data %>% 
-  filter(source == "cryptonews") %>% 
-  filter(grepl("The text below is an advertorial article", .$text))
-
-data  <-  data %>% 
-  filter(data$text %!in% misc$text)
-    
 ## Cointelegraph ----
 # Fixing footer
 data[which(data$source=="cointelegraph"),] <- data %>% 
   filter(source == "cointelegraph") %>% 
   mutate(text = ifelse(grepl("Subscribe to the Finance Redefined newsletter", .$text), gsub("(.+?)Subscribe to the Finance Redefined newsletter.+", "\\1", .$text), no =.$text)) %>% 
-  mutate(text = ifelse(grepl("DELIVERED EVERY MONDAY", .$text), gsub("(.+?)DELIVERED.EVERY.MONDAY.+", "\\1", .$text), no =.$text))
+  mutate(text = ifelse(grepl("DELIVERED EVERY (MONDAY|FRIDAY)", .$text), gsub("(.+?)DELIVERED.EVERY.(MONDAY|FRIDAY).+", "\\1", .$text), no =.$text))
 
 # Dropping consulting reports, guest articles, press releases, paid article
 misc <- data %>% 
@@ -80,8 +75,6 @@ data  <-  data %>%
 data[which(data$source=="coindesk"),] <- data %>% 
   filter(source == "coindesk") %>% 
   mutate(text = ifelse(grepl("Also read:|See also:|Read more:", .$text), gsub("[[:space:]](Also read:|See also:|Read more).+?[[:space:]][[:space:]]", "", .$text), no =.$text))
-
-grep("read more:", data[which(data$source=="coindesk"),"text"])
 
 ## The Block ----
 # Cleaning formatting and disclaimer
