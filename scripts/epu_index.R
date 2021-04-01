@@ -3,12 +3,12 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(ggrepel)
-library(zoo)
-library(fpp3)
-library(tsibble)
 library(stargazer)
 library(caret)
 library(tidytext)
+library(tm)
+
+'%!in%' <- function(x,y)!('%in%'(x,y))
 
 theme_set(theme_minimal())
 
@@ -115,23 +115,98 @@ source(file = "uncertainty_sampling.R")
 
 # Add response to data
 data$y <- NA
+defi$y <- NA
 
 data("stop_words")
 stop_words <- stop_words %>% 
   rbind(c("nbsp", "custom"))
 
 # Filter articles on DeFi
-defi_econ <- defi[grep("econom", defi$text, ignore.case = T),] %>% 
+defi_econ <- defi[grep(" econom", defi$text, ignore.case = T),] %>% 
   mutate(id = row_number()) %>% 
-  relocate(id) %>% 
+  relocate(id)
+
+x <- head(defi_econ)
+
+label_data <- function(x, n){
+  p <- 0
+  for (i in c(1:n)) {
+    print(paste(p, "/", n))
+    message((paste("Article from", x$source[i])))
+    cat(paste(x[which(is.na(x$y)),"text"][i], sep ="\n"))
+    x[which(is.na(x$y)),"y"][i] <- readline(prompt="Is it related to EPU: ")
+    p <- p+1
+  }
+  return(x)
+}
+
+defi_econ_l <- label_data(defi_econ, 20)
+
+
+# TESTING ----
+# Defining training sample
+sample <- defi[grep("econom", defi$text, ignore.case = T),] %>% 
+  mutate(id = row_number()) %>% 
+  relocate(id)
+
+sample$y <- sample(x = c("yes", "no"), size = 3302, replace = TRUE)
+sample$y <- factor(sample$y)
+
+# DTM construction
+dtm <- DocumentTermMatrix(Corpus(VectorSource(sample$text)),
+                   control = list(removePunctuation = T,
+                                  stopwords = T,
+                                  tolower = T,
+                                  removeNumbers = T,
+                                  wordLengths=c(4, 20),
+                                  bounds = list(global = c(15,1500)))) %>% 
+  as.matrix()
+
+
+dtm <- sample %>% 
   unnest_tokens(word, text) %>% 
   anti_join(stop_words, by = "word") %>% 
   filter(word %!in% grep("[\\p{Han}]", .$word, value = T, perl = T)) %>% 
   count(id, word, sort = TRUE) %>% 
-  cast_dtm(id, word, n,weighting = tm::weightTfIdf)
-  
-  
+  cast_dtm(id, word, n) %>% 
+  as.matrix()
 
+
+  
+# Split into training and test
+idx <- createDataPartition(sample$y, p = 0.8, list = FALSE)
+train_x <- dtm[idx,]
+train_y <- sample$y[idx]
+
+test_x <- dtm[-idx,]
+test_y <- sample$y[-idx]
+
+# Train model (without CV)
+fit <- train(x= train_x,
+             y = train_y,
+             method = "glmnet")
+
+
+# Retreive and organise top terms by coefficients
+coefs <- coef(fit$finalModel, fit$bestTune$lambda)%>% 
+  as.matrix() %>% as.data.frame() %>% 
+  tibble::rownames_to_column("word") %>% 
+  rename(value = `1`) %>% 
+  arrange(desc(abs(value))) %>% 
+  filter(value !=0)
+
+
+# Assess the predictive performance
+prd <- predict(fit, newdata = test_x)
+
+# Confusion matrix
+confusionMatrix(prd, test_y)
+
+
+
+
+
+# TODO: response to non-defi
 
 
 
@@ -159,3 +234,9 @@ l <- uncertainty_sampling(x, y,
 
 # Check the least certain data points
 which(is.na(y))[l$query]
+
+
+
+
+
+
