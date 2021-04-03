@@ -126,7 +126,9 @@ defi_econ <- defi[grep(" econom", defi$text, ignore.case = T),] %>%
   mutate(id = row_number()) %>% 
   relocate(id)
 
-defi_lab <- lab(defi_econ, 20)
+defi_lab <- lab(defi_lab, 100)
+
+write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
 
 
 # TESTING ----
