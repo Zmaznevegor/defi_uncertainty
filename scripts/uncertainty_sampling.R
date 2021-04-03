@@ -108,12 +108,14 @@ query_oracle <- function(i, y_truth) {
 
 lab <- function(x, n){
   # Start the count
+  x_na <- x %>% 
+    filter(is.na(y)) %>%
+    .$id
+  idx <- head(sample(x_na), n)
   p <- 1
-  start <- min(which(is.na(x$y)))
-  end <-start + n-1
   
   # Start loop with response variable updates
-  for (i in c(start:end)) {
+  for (i in idx) {
     print(paste(p, "/", n))
     message((paste("Article from", x$source[i])))
     cat(paste(x$text[i], sep ="\n"), "\n", "\n")
