@@ -50,7 +50,7 @@ uncertainty_sampling <- function(x, y, uncertainty="entropy", classifier,
   split_out <- split_labeled(x, y)
   
   train_out <- train(x=split_out$x_labeled, y=split_out$y_labeled,
-                     method="svmLinear", ...)
+                     method=classifier, ...)
   
   # Extracts the class posterior probabilities for the unlabeled observations.
   posterior <- predict(train_out, newdata=split_out$x_unlabeled, type = "prob")
@@ -117,6 +117,20 @@ lab <- function(x, n){
   # Start loop with response variable updates
   for (i in idx) {
     print(paste(p, "/", n))
+    message((paste("Article from", x$source[i])))
+    cat(paste(x$text[i], sep ="\n"), "\n", "\n")
+    x$y[i] <- menu(c("Yes", # equals 1, otherwise 0
+                     "No"), title="Is it related to DeFi EPU?")
+    p <- p+1
+  }
+  return(x)
+}
+
+lab_unc <- function(x, n){
+  p <- 1
+  # Start loop with response variable updates
+  for (i in n) {
+    print(paste(p, "/", length(n)))
     message((paste("Article from", x$source[i])))
     cat(paste(x$text[i], sep ="\n"), "\n", "\n")
     x$y[i] <- menu(c("Yes", # equals 1, otherwise 0
