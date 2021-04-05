@@ -149,13 +149,19 @@ dtm <- DocumentTermMatrix(Corpus(VectorSource(defi_lab$text)),
 ### Split into training and test ----
 ### For uncertainty sampling
 idx <- defi_lab %>% 
-  filter(!is.na(y)) %>% 
-  sample_n(100)
+  filter(!is.na(y)) 
+
+idx <- idx[createDataPartition(idx$y, p = 0.114, list = F),]
+
+train_x <- dtm[-idx$id, ]
+train_y <- defi_lab %>%
+  filter(id %!in% idx$id) %>% 
+  .$y
 
 test_x <- dtm[idx$id,]
 test_y <- idx$y
 
-### Train model on the non-NA
+### Train predictive model on the non-NA
 idx_1 <-  defi_lab %>% 
   filter(!is.na(y)) %>% 
   filter(id %!in% idx$id)
@@ -180,112 +186,46 @@ test_set <- data.frame(obs = test_y,
 test_set$pred <- factor(ifelse(test_set$Yes >= .5, 1, 2), labels = c("Yes", "No"))
 
 confusionMatrix(test_set$pred, test_y)
-prSummary(test_y, lev = levels(test_set$obs))
-
-auc_0<- prSummary(test_set, lev = levels(test_set$obs))[1]
-
-## Uncertainty sampling
-### Retrieve and label top 100 most uncertain
-unc <- uncertainty_sampling(dtm, defi_lab$y,
-                            uncertainty = "least_confidence", num_query = 100,
-                            classifier = "svmLinear", trControl = fit_control)
-
-defi_lab$y <- factor(defi_lab$y, levels = c("Yes","No"), labels = c(1, 2))
-defi_lab <- lab_unc(defi_lab, unc$query)
-
-defi_lab %>% 
-  group_by(y) %>% 
-  summarise(n = n())
-
-write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
-
-### Reshuffle and repeat for the first batch ----
-### For uncertainty sampling
-defi_lab$y <- factor(defi_lab$y, levels = c(1,2), labels = c("Yes", "No"))
-idx <- defi_lab %>% 
-  filter(!is.na(y)) %>% 
-  sample_n(100)
-
-test_x <- dtm[idx$id,]
-test_y <- idx$y
-
-### Train model on the non-NA
-idx_2 <-  defi_lab %>% 
-  filter(!is.na(y)) %>% 
-  filter(id %!in% idx$id)
-
-train_x2 <- dtm[idx_2$id,]
-train_y2 <- idx_2$y
-
-## Modeling and predictions
-fit2 <- train(x= train_x2,
-             y = train_y2,
-             method = "svmLinear",
-             trControl = fit_control)
-
-prd2 <- predict(fit, newdata = test_x, type = "prob")
-
-## Evaluating results: confusion matrix and AUC
-test_set <- data.frame(obs = test_y,
-                       Yes = prd2$Yes,
-                       No = prd2$No)
-test_set$pred <- factor(ifelse(test_set$Yes >= .5, 1, 2), labels = c("Yes", "No"))
-
-confusionMatrix(test_set$pred, test_y)
 prSummary(test_set, lev = levels(test_set$obs))
 
-auc_1<- prSummary(test_set, lev = levels(test_set$obs))[1]
+# Change number to the corresponding iteration
+auc_6 <- prSummary(test_set, lev = levels(test_set$obs))[1]
 
 ## Uncertainty sampling, second iteration
 ### Retrieve and label top 100 most uncertain
-unc <- uncertainty_sampling(dtm, defi_lab$y,
-                            uncertainty = "least_confidence", num_query = 10,
+unc <- uncertainty_sampling(train_x, train_y,
+                            uncertainty = "least_confidence", num_query = 180,
                             classifier = "svmLinear", trControl = fit_control)
 
+length(na.omit(train_y[unc$query]))
+
+# Finding corresponding IDs
+raw <- defi_lab %>% 
+  anti_join(idx)
+
+# Fixing factor for uncertainty labeling
 defi_lab$y <- factor(defi_lab$y, levels = c("Yes","No"), labels = c(1, 2))
-defi_lab <- lab_unc(defi_lab, unc$query)
+defi_lab <- lab_unc(defi_lab, raw$id[unc$query])
+
+# Fixing factoring back
 defi_lab$y <- factor(defi_lab$y, levels = c(1,2), labels = c("Yes", "No"))
 
+# Checking data
 defi_lab %>% 
   group_by(y) %>% 
-  summarise(n = n())
+  summarise(n = n(),
+            total = sum())
 
+# Saving preliminary results
 write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
 
-# 3rd Iteration
-idx <- defi_lab %>% 
-  filter(!is.na(y)) %>% 
-  sample_n(100)
+plot(varImp(fit1), top = 30)
 
-test_x <- dtm[idx$id,]
-test_y <- idx$y
+# ITERATING: after the top 100 most uncertain rows are found
+# rerun the code lines 165-190 to check the updated model
+# save AUC results for the further plotting
+# repeat sampling and modeling till AUC doe not improve
 
-### Train model on the non-NA
-idx_2 <-  defi_lab %>% 
-  filter(!is.na(y)) %>% 
-  filter(id %!in% idx$id)
-
-train_x2 <- dtm[idx_2$id,]
-train_y2 <- idx_2$y
-
-## Modeling and predictions
-fit2 <- train(x= train_x2,
-              y = train_y2,
-              method = "svmLinear",
-              trControl = fit_control)
-
-prd2 <- predict(fit, newdata = test_x, type = "prob")
-
-## Evaluating results: confusion matrix and AUC
-test_set <- data.frame(obs = test_y,
-                       Yes = prd2$Yes,
-                       No = prd2$No)
-test_set$pred <- factor(ifelse(test_set$Yes >= .5, 1, 2), labels = c("Yes", "No"))
-
-confusionMatrix(test_set$pred, test_y)
-prSummary(test_set, lev = levels(test_set$obs))
-
-auc_3<- prSummary(test_set, lev = levels(test_set$obs))[1]
 
 
 # Retreive and organise top terms by coefficients
