@@ -7,12 +7,16 @@ library(stargazer)
 library(caret)
 library(tidytext)
 library(tm)
+library(tsibble)
+library(reshape2)
 
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
 theme_set(theme_minimal())
 
 data <- read.csv("data/all_articles.csv")
+
+set.seed(123)
 
 # EPU Construction ----
 ## Naive base method ----
@@ -41,44 +45,7 @@ epu_base_yw <- epu_base %>%
 
 ggplot(epu_base_yw, aes(x = yw, y = n_articles))+geom_line()
 
-data_yw <- data %>% 
-  mutate(yw = yearweek(date)) %>% 
-  group_by(yw, source) %>% 
-  summarise(n_articles = n())
-
-ggplot(data_yw, aes(x = yw, y = n_articles))+geom_line()
-
-scale <- left_join(data_yw, epu_base_yw, by = c("yw", "source")) %>% 
-  rename(n_articles = n_articles.x,
-         epu_articles = n_articles.y) %>% 
-  replace_na(list(epu_articles = 0)) %>% 
-  filter(yw > yearweek("2017 W51"),
-         yw < yearweek("2021 W12"))
-
-ggplot(scale, aes(x = yw, y = epu_articles, colour = source))+ geom_line()
-
-wk <- scale %>% 
-  group_by(yw) %>% 
-  summarise(articles = sum(n_articles),
-            epu_a = sum(epu_articles))
-
-t1 <- wk$yw[1:round(0.8*length(wk$yw))]
-t2 <- wk$yw[(length(t1)+1):length(wk$yw)]
-
-base <- scale %>% 
-  mutate(scaled = epu_articles/n_articles)
-sd1 <- with(base, sd(scaled[scale$yw %in% t1]))
-
-m <- base %>% mutate(stnd = scaled/sd1) %>% 
-  group_by(yw) %>% 
-  summarise(m = mean(stnd)) %>% 
-  filter(yw %in% t2)
-
-epu <- base %>% 
-  mutate(stnd = scaled/sd1) %>% 
-  group_by(yw) %>% 
-  summarise(stnd1 = mean(stnd)) %>% 
-  mutate(norm = stnd1/mean(m$m)*100)
+epu_naive <- normalize(epu_base_yw)
 
 ### Plotting naive index ----
 # Annotations
@@ -151,7 +118,7 @@ dtm <- DocumentTermMatrix(Corpus(VectorSource(defi_lab$text)),
 idx <- defi_lab %>% 
   filter(!is.na(y)) 
 
-idx <- idx[createDataPartition(idx$y, p = 0.114, list = F),]
+idx <- idx[createDataPartition(idx$y, p = 0.0823, list = F),]
 
 train_x <- dtm[-idx$id, ]
 train_y <- defi_lab %>%
@@ -165,6 +132,8 @@ test_y <- idx$y
 idx_1 <-  defi_lab %>% 
   filter(!is.na(y)) %>% 
   filter(id %!in% idx$id)
+
+#idx_1 <- idx_1[createDataPartition(idx_1$y, p = 0.718, list = F),]
 
 train_x1 <- dtm[idx_1$id,]
 train_y1 <- idx_1$y
@@ -189,15 +158,15 @@ confusionMatrix(test_set$pred, test_y)
 prSummary(test_set, lev = levels(test_set$obs))
 
 # Change number to the corresponding iteration
-auc_6 <- prSummary(test_set, lev = levels(test_set$obs))[1]
+auc_7 <- prSummary(test_set, lev = levels(test_set$obs))[1]
+
+# auc <- c(auc_0, auc_1, auc_2, auc_3, auc_4, auc_5, auc_6, auc_7)
 
 ## Uncertainty sampling, second iteration
 ### Retrieve and label top 100 most uncertain
 unc <- uncertainty_sampling(train_x, train_y,
-                            uncertainty = "least_confidence", num_query = 180,
+                            uncertainty = "least_confidence", num_query = 100,
                             classifier = "svmLinear", trControl = fit_control)
-
-length(na.omit(train_y[unc$query]))
 
 # Finding corresponding IDs
 raw <- defi_lab %>% 
@@ -213,30 +182,48 @@ defi_lab$y <- factor(defi_lab$y, levels = c(1,2), labels = c("Yes", "No"))
 # Checking data
 defi_lab %>% 
   group_by(y) %>% 
-  summarise(n = n(),
-            total = sum())
+  summarise(n = n())
 
 # Saving preliminary results
 write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
 
-plot(varImp(fit1), top = 30)
-
 # ITERATING: after the top 100 most uncertain rows are found
-# rerun the code lines 165-190 to check the updated model
+# rerun the code lines with spliiting, modeling and predicting to check the updated model
 # save AUC results for the further plotting
 # repeat sampling and modeling till AUC doe not improve
 
+# Check top importance terms
+top_terms <- plot(varImp(fit1), top = 20)
 
+# Construct index based on the fit model
+# All articles that are not used for training
+test_x1 <- dtm[-idx_1$id,]
 
-# Retreive and organise top terms by coefficients
-coefs <- coef(fit$finalModel, fit$bestTune$lambda)%>% 
-  as.matrix() %>% as.data.frame() %>% 
-  tibble::rownames_to_column("word") %>% 
-  rename(value = `1`) %>% 
-  arrange(desc(abs(value))) %>% 
-  filter(value !=0)
+defi_lab$y_pred <- predict(fit1, newdata = dtm)
 
+epu_mod_yw <- defi_lab %>% 
+  filter(y_pred == "Yes") %>% 
+  select(date, source, y_pred) %>% 
+  mutate(yw = yearweek(date)) %>% 
+  group_by(yw, source) %>% 
+  summarise(n_articles = n())
 
+ggplot(epu_mod, aes(x = yw, y = n_articles))+geom_line()
 
+epu_mod <- normalize(epu_mod_yw)
+
+left_join(epu_naive, epu_mod, by = "yw") %>% 
+  rename("Naive" = norm.x,
+         "AL Mod" = norm.y) %>% 
+  melt(id = "yw") %>% 
+  ggplot(aes(x = as.Date(yw)))+
+  geom_line(aes(y = value, colour = variable))+
+  labs(x = "", y = "EPU", colour = "Method")+
+  theme(legend.position = "bottom")
+
+a <- defi_lab %>% 
+  filter(y_pred == "Yes") %>% 
+  filter(date < as.Date(yearweek("2018 W13")),
+         date > as.Date(yearweek("2018 W11")))
 
 # TODO: response to non-defi
