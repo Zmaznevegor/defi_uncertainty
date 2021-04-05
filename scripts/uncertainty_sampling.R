@@ -139,3 +139,44 @@ lab_unc <- function(x, n){
   }
   return(x)
 }
+
+normalize <- function(x){
+  data_yw <- data %>% 
+    mutate(yw = yearweek(date)) %>% 
+    group_by(yw, source) %>% 
+    summarise(n_articles = n())
+  
+  scale <- left_join(data_yw, x, by = c("yw", "source")) %>% 
+    rename(n_articles = n_articles.x,
+           epu_articles = n_articles.y) %>% 
+    replace_na(list(epu_articles = 0)) %>% 
+    filter(yw > yearweek("2017 W51"),
+           yw < yearweek("2021 W12"))
+  
+  ggplot(scale, aes(x = yw, y = epu_articles, colour = source))+ geom_line()
+  
+  wk <- scale %>% 
+    group_by(yw) %>% 
+    summarise(articles = sum(n_articles),
+              epu_a = sum(epu_articles))
+  
+  t1 <- wk$yw[1:round(0.8*length(wk$yw))]
+  t2 <- wk$yw[(length(t1)+1):length(wk$yw)]
+  
+  base <- scale %>% 
+    mutate(scaled = epu_articles/n_articles)
+  sd1 <- with(base, sd(scaled[scale$yw %in% t1]))
+  
+  m <- base %>% mutate(stnd = scaled/sd1) %>% 
+    group_by(yw) %>% 
+    summarise(m = mean(stnd)) %>% 
+    filter(yw %in% t2)
+  
+  epu <- base %>% 
+    mutate(stnd = scaled/sd1) %>% 
+    group_by(yw) %>% 
+    summarise(stnd1 = mean(stnd)) %>% 
+    mutate(norm = stnd1/mean(m$m)*100)
+  
+  return(epu %>% select(yw, norm))
+}
