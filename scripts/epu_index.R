@@ -7,7 +7,7 @@ library(stargazer)
 library(caret)
 library(tidytext)
 library(tm)
-library(tsibble)
+library(fpp3)
 library(reshape2)
 
 '%!in%' <- function(x,y)!('%in%'(x,y))
@@ -218,12 +218,110 @@ left_join(epu_naive, epu_mod, by = "yw") %>%
   melt(id = "yw") %>% 
   ggplot(aes(x = as.Date(yw)))+
   geom_line(aes(y = value, colour = variable))+
+  geom_line(data = ff, aes(y=norm), colour = "black")+
   labs(x = "", y = "EPU", colour = "Method")+
   theme(legend.position = "bottom")
 
 a <- defi_lab %>% 
   filter(y_pred == "Yes") %>% 
-  filter(date < as.Date(yearweek("2018 W13")),
-         date > as.Date(yearweek("2018 W11")))
+  filter(date < as.Date(yearweek("2020 W13")),
+         date > as.Date(yearweek("2020 W11")))
 
-# TODO: response to non-defi
+idx$y_pred <- prd1
+f <- idx %>% 
+  mutate(y = factor(ifelse(y_pred$Yes >= .5, 1, 2), labels = c("Yes", "No"))) %>%
+  select(id, date, text, source, y) %>% 
+  bind_rows(idx_1) %>% 
+  sample_n(800) %>% 
+  filter(y == "Yes") %>% 
+  select(date, source, y) %>% 
+  mutate(yw = yearweek(date)) %>% 
+  group_by(yw, source) %>% 
+  summarise(n_articles = n())
+
+
+ff <- normalize(f)
+
+# VAR modeling ----
+# Check correlation
+cor.test(epu_mod$norm,epu_naive$norm)
+
+## Import the data and plot ----
+tvl <- read.csv("data/defi/tvl_data.csv") %>% 
+  mutate(yw = yearweek(time)) %>% 
+  select(yw, tvlusd, tvleth, token) %>% 
+  filter(yw > yearweek("2017 W51"),
+         yw < yearweek("2021 W12")) %>% 
+  group_by(yw, token) %>% 
+  slice(1)
+
+ggplot(tvl, aes(x = as.Date(yw), y = tvleth)) +
+  geom_line(aes(colour = token))+
+  labs(x = "", y = "TVL (ETH)", colour = "DeFi")
+
+## Import gas and difficulty stats ----
+### Block difficulty
+bldif <- read.csv("data/defi/export-BlockDifficulty.csv") %>% 
+  mutate(yw = yearweek(as.Date(Date.UTC., format = "%m/%d/%Y"))) %>% 
+  select(yw, Value) %>% 
+  group_by(yw) %>% 
+  summarise_at(vars(Value), list(avg.diff = mean)) %>% 
+  filter(yw > yearweek("2017 W51"), yw < yearweek("2021 W12")) %>% ungroup()
+
+ggplot(bldif, aes(x = as.Date(yw), y = avg.diff)) +
+  geom_line()+
+  labs(x = "", y = "Average Block Difficultry")
+
+cor.test(tvl %>% filter(token == "maker") %>% .$tvlusd,bldif$avg.diff)
+
+### Gas price
+gas <- read.csv("data/defi/export-AvgGasPrice.csv") %>% 
+  mutate(yw = yearweek(as.Date(Date.UTC., format = "%m/%d/%Y")),
+         Value = Value..Wei.) %>% 
+  select(yw, Value) %>% 
+  group_by(yw) %>% 
+  summarise_at(vars(Value), list(avg.gas = mean)) %>% 
+  filter(yw > yearweek("2017 W51"), yw < yearweek("2021 W12")) %>% ungroup()
+
+ggplot(gas, aes(x = as.Date(yw), y = avg.gas)) +
+  geom_line()+
+  labs(x = "", y = "Average Gas Price")
+
+cor.test(tvl %>% filter(token == "maker") %>% .$tvlusd, gas$avg.gas)
+
+### Verified contracts
+contracts <- read.csv("data/defi/export-verified-contracts.csv") %>% 
+  mutate(yw = yearweek(as.Date(Date.UTC.)),
+         Value = No..of.Verified.Contracts) %>% 
+  select(yw, Value) %>% 
+  group_by(yw) %>% 
+  summarise_at(vars(Value), list(avg.verf = mean)) %>% 
+  filter(yw > yearweek("2017 W51"), yw < yearweek("2021 W12")) %>% ungroup()
+
+ggplot(contracts, aes(x = as.Date(yw), y = avg.verf)) +
+  geom_line()+
+  labs(x = "", y = "Average Contracts Verified")
+
+cor.test(tvl %>% filter(token == "maker") %>% .$tvlusd, contracts$avg.verf)
+
+
+A = as.matrix(data.frame(c(3,4,3),c(4,8,6),c(3,6,9)))
+chol(A)
+
+
+# TODO: check with tvlusd
+
+inp <- epu_mod %>% 
+  left_join(tvl %>% filter(token == "maker"), by = "yw") %>% 
+  left_join(bldif, by = "yw") %>% 
+  left_join(gas, by = "yw") %>% 
+  left_join(contracts, by ="yw") %>% 
+  select(yw, norm, avg.verf, avg.diff, avg.gas, tvleth, tvlusd) %>% 
+  as_tsibble(index = yw)
+
+fit <- inp %>% 
+  model(org = ARIMA(log(tvleth)),
+        unc = ARIMA(log(tvleth)~norm))
+
+
+        
