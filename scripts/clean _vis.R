@@ -13,9 +13,6 @@ theme_set(theme_minimal())
 data <- read.csv("data/all_articles.csv") %>% 
   mutate(date = as.Date(date, format = "%Y-%m-%d"))
 
-# TODO: update TVL data with Ether scan https://etherscan.io/apis#tokens 
-# tvl <- fread("data/defi/tvl_data.csv")
-
 # Cleaning text data ----
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
