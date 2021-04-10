@@ -126,6 +126,8 @@ lab <- function(x, n){
   return(x)
 }
 
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
 lab_unc <- function(x, n){
   p <- 1
   # Start loop with response variable updates

@@ -1,21 +1,28 @@
 # Load libraries and data ----
+# Data wrangling
 library(dplyr)
 library(tidyr)
+
+# Data representations and visuals
 library(ggplot2)
 library(ggrepel)
-library(zoo)
-library(fpp3)
-library(tsibble)
 library(stargazer)
 
+# Time-series data manipulations
+library(zoo)
+library(fpp3)
+
+# Custom functions for AL
+source(file = "scripts/uncertainty_sampling.R")
+
+# Keeping a common theme across the visuals
 theme_set(theme_minimal())
 
+# Load raw data
 data <- read.csv("data/all_articles.csv") %>% 
   mutate(date = as.Date(date, format = "%Y-%m-%d"))
 
 # Cleaning text data ----
-'%!in%' <- function(x,y)!('%in%'(x,y))
-
 ## News Bitcoin ----
 # Articles that do not have the end line: sponsored and ads that should be dropped
 misc <- data %>% 
