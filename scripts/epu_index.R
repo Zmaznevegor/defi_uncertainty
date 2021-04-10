@@ -1,38 +1,53 @@
 # Load libraries and data ----
+# Data wrangling and cleaning
 library(dplyr)
 library(tidyr)
+library(reshape2)
+
+# Data representation and visuals
 library(ggplot2)
 library(ggrepel)
 library(stargazer)
-library(caret)
+
+# Work with text
 library(tidytext)
 library(tm)
+
+# Work with time series and ML
+library(caret)
 library(fpp3)
-library(reshape2)
 
-'%!in%' <- function(x,y)!('%in%'(x,y))
+# Custom functions for AL
+source(file = "scripts/uncertainty_sampling.R")
 
+# Theming for graphs
 theme_set(theme_minimal())
 
+# Cleaned data load
 data <- read.csv("data/all_articles.csv")
 
+# Seed for reproducability
 set.seed(123)
 
 # EPU Construction ----
 ## Naive base method ----
+# Choosing relevant terms for DeFi
 defi_words = " defi | decentrali(z|s)ed finance"
 defi_service_words = " decentralized borrow| decentralized lend| stablecoin| decentrali(s|z)ed exchange| DEX | yield farm| DEXes | decentralized oracle"
 defi <-  grep(defi_words, data$text, ignore.case = T)
 defi_service <-  grep(defi_service_words, data$text, ignore.case = T)
 all_defi <- union(defi,defi_service)
-
 defi <- data[all_defi,]
 
+# Terms related to regulations (P)
 defi_reg <-  grep(" regulat| \bregulation\b|\blegislation\b\regulatory\b|\bdeficit\b|regulatory|White House|Federal Reserve|\bCongress\b| supreme court| government| European Commission|legislat| European Central Bank|\bESMA\b|\bECB\b|\bFCA\b|\bEBA\b|\bjurisdiction\b|\bSEC\b|\bcompliance\b", defi$text, ignore.case = T)
 defi_reg <- defi[defi_reg,]
 
+# Basic terms related to uncertainty (U)
 defi_unc <-  grep("uncertain", defi_reg$text, ignore.case = T)
 pu_base <- defi_reg[defi_unc,]
+
+# Terms related to economics (E)
 econ <- grep(" econom", pu_base$text, ignore.case = T)
 epu_base <- pu_base[econ,]
 
@@ -70,17 +85,14 @@ ggplot(epu, aes(x = as.Date(yw), y = norm))+
     y = " Economic Policy Uncertainty",
     x = "")
 
-
+# Use the following to check the articles within a certain range
 a <- epu_base %>% 
   mutate(yw = yearweek(date)) %>% 
   filter(yw == yearweek("2020 W16"))
 
 
 ## Active learner approach ----
-### Preparation ----
-# Import functions
-source(file = "scripts/uncertainty_sampling.R")
-
+### Pre-processing ----
 # Add response to data
 data$y <- NA
 defi$y <- NA
@@ -94,11 +106,8 @@ defi_econ <- defi[grep(" econom", defi$text, ignore.case = T),] %>%
   mutate(id = row_number()) %>% 
   relocate(id)
 
-defi_lab <- lab(defi_lab, 80)
-
-write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
-
-defi_lab <- read.csv("data/labbed.csv")
+# For reprocutoin
+# defi_lab <- read.csv("data/labbed.csv")
 
 # Defining training sample
 defi_lab$y <- factor(defi_lab$y, levels = c(1,2), labels = c("Yes", "No"))
@@ -114,7 +123,7 @@ dtm <- DocumentTermMatrix(Corpus(VectorSource(defi_lab$text)),
   as.matrix()
   
 ### Split into training and test ----
-### For uncertainty sampling
+# For uncertainty sampling
 idx <- defi_lab %>% 
   filter(!is.na(y)) 
 
@@ -128,7 +137,7 @@ train_y <- defi_lab %>%
 test_x <- dtm[idx$id,]
 test_y <- idx$y
 
-### Train predictive model on the non-NA
+### Train predictive model on the non-NA ----
 idx_1 <-  defi_lab %>% 
   filter(!is.na(y)) %>% 
   filter(id %!in% idx$id)
@@ -138,7 +147,7 @@ idx_1 <-  defi_lab %>%
 train_x1 <- dtm[idx_1$id,]
 train_y1 <- idx_1$y
   
-## Modeling and predictions
+### Modeling and predictions ----
 fit_control <- trainControl(method = "cv", number = 10, classProbs = TRUE)
 
 fit1 <- train(x= train_x1,
@@ -148,7 +157,7 @@ fit1 <- train(x= train_x1,
 
 prd1 <- predict(fit1, newdata = test_x, type = "prob")
 
-## Evaluating results: confusion matrix and AUC
+### Evaluating results: confusion matrix and AUC ----
 test_set <- data.frame(obs = test_y,
                        Yes = prd1$Yes,
                        No = prd1$No)
@@ -157,13 +166,13 @@ test_set$pred <- factor(ifelse(test_set$Yes >= .5, 1, 2), labels = c("Yes", "No"
 confusionMatrix(test_set$pred, test_y)
 prSummary(test_set, lev = levels(test_set$obs))
 
-# Change number to the corresponding iteration
+# Change number to the corresponding iteration of uncertainty sampling
 auc_7 <- prSummary(test_set, lev = levels(test_set$obs))[1]
 
 # auc <- c(auc_0, auc_1, auc_2, auc_3, auc_4, auc_5, auc_6, auc_7)
 
-## Uncertainty sampling, second iteration
-### Retrieve and label top 100 most uncertain
+### Uncertainty sampling, second iteration ----
+# Retrieve and label top 100 most uncertain
 unc <- uncertainty_sampling(train_x, train_y,
                             uncertainty = "least_confidence", num_query = 100,
                             classifier = "svmLinear", trControl = fit_control)
@@ -184,6 +193,17 @@ defi_lab %>%
   group_by(y) %>% 
   summarise(n = n())
 
+auc_plot <- ggplot(as.data.frame(auc), aes(y = auc, x = c(0:7)))+
+  geom_line(linetype = 1, colour = "black", alpha = 1, size = 0.75)+
+  #geom_hline(yintercept = 0, linetype = "dotted", colour = "black", alpha = 0.5)+
+  coord_cartesian(ylim = c(0, 1))+
+  scale_y_continuous(breaks = seq(0, 1, by = 0.2))+
+  scale_x_continuous(breaks = seq(0, 7, by = 2))+
+  labs(x = "Iteration", y = "AUC", title = "Evolution of AUC throughout AL process",
+       subtitle = "AUC on the test set were collected after each iteration") +
+  theme(plot.title = element_text(hjust = 0.5, vjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
+
 # Saving preliminary results
 write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
 
@@ -193,9 +213,9 @@ write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
 # repeat sampling and modeling till AUC doe not improve
 
 # Check top importance terms
-top_terms <- plot(varImp(fit1), top = 20)
+top_terms <- varImp(fit1)
 
-# Construct index based on the fit model
+### Construct index based on the fit model ----
 # All articles that are not used for training
 test_x1 <- dtm[-idx_1$id,]
 
@@ -208,120 +228,23 @@ epu_mod_yw <- defi_lab %>%
   group_by(yw, source) %>% 
   summarise(n_articles = n())
 
-ggplot(epu_mod, aes(x = yw, y = n_articles))+geom_line()
+ggplot(epu_mod, aes(x = yw, y = n_articles)) +
+  geom_line()
 
 epu_mod <- normalize(epu_mod_yw)
 
+## Combine and save the results ----
 left_join(epu_naive, epu_mod, by = "yw") %>% 
   rename("Naive" = norm.x,
          "AL Mod" = norm.y) %>% 
   melt(id = "yw") %>% 
   ggplot(aes(x = as.Date(yw)))+
   geom_line(aes(y = value, colour = variable))+
-  geom_line(data = ff, aes(y=norm), colour = "black")+
   labs(x = "", y = "EPU", colour = "Method")+
   theme(legend.position = "bottom")
 
-a <- defi_lab %>% 
-  filter(y_pred == "Yes") %>% 
-  filter(date < as.Date(yearweek("2020 W13")),
-         date > as.Date(yearweek("2020 W11")))
-
 idx$y_pred <- prd1
-f <- idx %>% 
-  mutate(y = factor(ifelse(y_pred$Yes >= .5, 1, 2), labels = c("Yes", "No"))) %>%
-  select(id, date, text, source, y) %>% 
-  bind_rows(idx_1) %>% 
-  sample_n(800) %>% 
-  filter(y == "Yes") %>% 
-  select(date, source, y) %>% 
-  mutate(yw = yearweek(date)) %>% 
-  group_by(yw, source) %>% 
-  summarise(n_articles = n())
 
-
-ff <- normalize(f)
-
-# VAR modeling ----
-# Check correlation
-cor.test(epu_mod$norm,epu_naive$norm)
-
-## Import the data and plot ----
-tvl <- read.csv("data/defi/tvl_data.csv") %>% 
-  mutate(yw = yearweek(time)) %>% 
-  select(yw, tvlusd, tvleth, token) %>% 
-  filter(yw > yearweek("2017 W51"),
-         yw < yearweek("2021 W12")) %>% 
-  group_by(yw, token) %>% 
-  slice(1)
-
-ggplot(tvl, aes(x = as.Date(yw), y = tvleth)) +
-  geom_line(aes(colour = token))+
-  labs(x = "", y = "TVL (ETH)", colour = "DeFi")
-
-## Import gas and difficulty stats ----
-### Block difficulty
-bldif <- read.csv("data/defi/export-BlockDifficulty.csv") %>% 
-  mutate(yw = yearweek(as.Date(Date.UTC., format = "%m/%d/%Y"))) %>% 
-  select(yw, Value) %>% 
-  group_by(yw) %>% 
-  summarise_at(vars(Value), list(avg.diff = mean)) %>% 
-  filter(yw > yearweek("2017 W51"), yw < yearweek("2021 W12")) %>% ungroup()
-
-ggplot(bldif, aes(x = as.Date(yw), y = avg.diff)) +
-  geom_line()+
-  labs(x = "", y = "Average Block Difficultry")
-
-cor.test(tvl %>% filter(token == "maker") %>% .$tvlusd,bldif$avg.diff)
-
-### Gas price
-gas <- read.csv("data/defi/export-AvgGasPrice.csv") %>% 
-  mutate(yw = yearweek(as.Date(Date.UTC., format = "%m/%d/%Y")),
-         Value = Value..Wei.) %>% 
-  select(yw, Value) %>% 
-  group_by(yw) %>% 
-  summarise_at(vars(Value), list(avg.gas = mean)) %>% 
-  filter(yw > yearweek("2017 W51"), yw < yearweek("2021 W12")) %>% ungroup()
-
-ggplot(gas, aes(x = as.Date(yw), y = avg.gas)) +
-  geom_line()+
-  labs(x = "", y = "Average Gas Price")
-
-cor.test(tvl %>% filter(token == "maker") %>% .$tvlusd, gas$avg.gas)
-
-### Verified contracts
-contracts <- read.csv("data/defi/export-verified-contracts.csv") %>% 
-  mutate(yw = yearweek(as.Date(Date.UTC.)),
-         Value = No..of.Verified.Contracts) %>% 
-  select(yw, Value) %>% 
-  group_by(yw) %>% 
-  summarise_at(vars(Value), list(avg.verf = mean)) %>% 
-  filter(yw > yearweek("2017 W51"), yw < yearweek("2021 W12")) %>% ungroup()
-
-ggplot(contracts, aes(x = as.Date(yw), y = avg.verf)) +
-  geom_line()+
-  labs(x = "", y = "Average Contracts Verified")
-
-cor.test(tvl %>% filter(token == "maker") %>% .$tvlusd, contracts$avg.verf)
-
-
-A = as.matrix(data.frame(c(3,4,3),c(4,8,6),c(3,6,9)))
-chol(A)
-
-
-# TODO: check with tvlusd
-
-inp <- epu_mod %>% 
-  left_join(tvl %>% filter(token == "maker"), by = "yw") %>% 
-  left_join(bldif, by = "yw") %>% 
-  left_join(gas, by = "yw") %>% 
-  left_join(contracts, by ="yw") %>% 
-  select(yw, norm, avg.verf, avg.diff, avg.gas, tvleth, tvlusd) %>% 
-  as_tsibble(index = yw)
-
-fit <- inp %>% 
-  model(org = ARIMA(log(tvleth)),
-        unc = ARIMA(log(tvleth)~norm))
-
-
-        
+write.csv(left_join(epu_naive, epu_mod, by = "yw") %>% 
+            rename("Naive" = norm.x,
+                   "AL Mod" = norm.y), file = "data/epu_results.csv", row.names = F)
