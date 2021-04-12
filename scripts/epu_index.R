@@ -40,7 +40,7 @@ all_defi <- union(defi,defi_service)
 defi <- data[all_defi,]
 
 # Terms related to regulations (P)
-defi_reg <-  grep(" regulat| \bregulation\b|\blegislation\b\regulatory\b|\bdeficit\b|regulatory|White House|Federal Reserve|\bCongress\b| supreme court| government| European Commission|legislat| European Central Bank|\bESMA\b|\bECB\b|\bFCA\b|\bEBA\b|\bjurisdiction\b|\bSEC\b|\bcompliance\b", defi$text, ignore.case = T)
+defi_reg <-  grep(" regulat|\bregulation\b|\blegislation\b|\bdeficit\b||White House|Federal Reserve|\bCongress\b| supreme court| government| European Commission|legislat|\bESMA\b|\bECB\b|\bFCA\b|\bEBA\b|\bjurisdiction\b|\bSEC\b|\bcompliance\b|\bFATF\b|\bFSB\b| central bank|Financial Stability Board|Financial Action Task Force|Financial conduct authority", defi$text, ignore.case = T)
 defi_reg <- defi[defi_reg,]
 
 # Basic terms related to uncertainty (U)
@@ -65,31 +65,37 @@ epu_naive <- normalize(epu_base_yw)
 ### Plotting naive index ----
 # Annotations
 label <- data.frame(
-  yw = c(as.Date("2020-03-22"), as.Date("2019-07-18"), as.Date("2018-01-22"),
-         as.Date("2020-11-06"), as.Date("2020-05-05"), as.Date("2019-09-10")), 
-  norm = c(610, 435, 420,
-           360, 280, 270), 
-  label = c(paste("COVID-19", sep = "\n"),
-            paste("Facebook testifies", "about Libra", sep = "\n"),
-            paste("Overregulation", "from South Korea", sep = "\n"),
-            paste("US elections", sep = "\n"),
-            paste("ECON study on", "cryptoassets", sep = "\n"),
-            paste("PBoC announces", "plan to launch", "digital currency", sep = "\n")))
+  yw = c(as.Date("2020-03-28"), as.Date("2019-07-18"), as.Date("2020-11-07"), 
+         as.Date("2018-02-10"), as.Date("2021-03-09"), as.Date("2019-08-31"), 
+         as.Date("2020-06-05"), as.Date("2020-01-10")), 
+  norm = c(445, 300, 285, 285, 245, 185, 225, 265), 
+  label = c(paste("COVID-19", "Phase I", sep = "\n"),
+            paste("Libra hearing", "in Senate", sep = "\n"),
+            paste("US Presidential", "Election", sep = "\n"),
+            paste("Crypto regulation", "in South Korea", sep = "\n"),
+            paste("US Stimulus", "Package", sep = "\n"),
+            paste("PBoC", "CBDC", sep = "\n"),
+            paste("US", "Protests", sep = "\n"),
+            paste("Digital", "Dollar","Initiative", sep = "\n")))
 
-ggplot(epu, aes(x = as.Date(yw), y = norm))+
-  geom_line(data = epu)+
-  #coord_cartesian(xlim = c("2018-09-22", "2019-01-01"))+
-  # geom_line(data = epu, aes(y = stnd1*100, colour = "Standar`dised"))+
-  geom_text(data = label, aes(label = label), size = 4)+
-  labs(#title = "Weekly DeFi Uncertainty Index",
+ggplot(epu_naive, aes(x = as.Date(yw), y = norm))+
+  ggplot2::annotate(geom = "rect", xmin=as.Date("2020-03-01"), xmax=as.Date("2020-05-05"), ymin=0, ymax=Inf, fill = "lightgreen", alpha = 0.3)+
+  geom_line(colour = "darkblue", alpha = 0.9)+
+  geom_text(data = label, aes(label = label), size = 3.5)+
+  labs(#title = "Index of Economic Policy Uncertainty for DeFi",
     y = " Economic Policy Uncertainty",
-    x = "")
+    x = "") 
+#+ theme(plot.title = element_text(hjust = 0.5, vjust = 0.5, size = 15, face = "bold"), plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
 
 # Use the following to check the articles within a certain range
 a <- epu_base %>% 
   mutate(yw = yearweek(date)) %>% 
-  filter(yw == yearweek("2020 W16"))
+  filter(yw == yearweek("2020 W04"))
 
+a <- defi_lab %>% 
+  mutate(yw = yearweek(date)) %>% 
+  filter(yw == yearweek("2020 W01"),
+         y_pred == "Yes")
 
 ## Active learner approach ----
 ### Pre-processing ----
@@ -168,7 +174,6 @@ prSummary(test_set, lev = levels(test_set$obs))
 
 # Change number to the corresponding iteration of uncertainty sampling
 auc_7 <- prSummary(test_set, lev = levels(test_set$obs))[1]
-
 # auc <- c(auc_0, auc_1, auc_2, auc_3, auc_4, auc_5, auc_6, auc_7)
 
 ### Uncertainty sampling, second iteration ----
@@ -201,7 +206,7 @@ auc_plot <- ggplot(as.data.frame(auc), aes(y = auc, x = c(0:7)))+
   scale_x_continuous(breaks = seq(0, 7, by = 2))+
   labs(x = "Iteration", y = "AUC", title = "Evolution of AUC throughout AL process",
        subtitle = "AUC on the test set were collected after each iteration") +
-  theme(plot.title = element_text(hjust = 0.5, vjust = 0.5),
+  theme(plot.title = element_text(hjust = 0.5, vjust = 0.5, size = 10, face = "bold"),
         plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
 
 # Saving preliminary results
@@ -213,7 +218,29 @@ write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
 # repeat sampling and modeling till AUC doe not improve
 
 # Check top importance terms
-top_terms <- varImp(fit1)
+top_terms <- varImp(fit1)[["importance"]]
+
+top <- top_terms %>% 
+  rename(Importance = "Yes") %>% 
+  select(Importance) %>% 
+  tibble::rownames_to_column("Word") %>% 
+  arrange(desc(Importance)) %>% 
+  head(20) 
+top <- cbind(top[1:10,], top[11:20,])
+colnames(top) <- c("Word", "Importance", "Word ", "Importance ")
+stargazer(top, summary = F, style = "qje", header = F, report = "vc*", type = "html",
+            single.row = F, no.space = T, digits = 2)
+
+
+# By weights
+m <- fit1$finalModel@xmatrix[[1]]
+n <- fit1$finalModel@coef[[1]]
+
+n%*%m %>% t() %>% 
+  as.data.frame() %>% 
+  rename(weight = V1) %>% 
+  arrange((weight)) %>% 
+  head(20)
 
 ### Construct index based on the fit model ----
 # All articles that are not used for training
@@ -228,7 +255,7 @@ epu_mod_yw <- defi_lab %>%
   group_by(yw, source) %>% 
   summarise(n_articles = n())
 
-ggplot(epu_mod, aes(x = yw, y = n_articles)) +
+ggplot(epu_mod_yw, aes(x = yw, y = n_articles)) +
   geom_line()
 
 epu_mod <- normalize(epu_mod_yw)

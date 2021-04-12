@@ -141,6 +141,12 @@ ggplot(posts_per_m, aes(x = as.Date(month), y=n, group = source)) +
   geom_col(aes(fill=source), colour = "black", size = 0.2) +
   geom_hline(aes(yintercept = mean(n), colour = "red"), size = 0.4)+
   facet_wrap(source~., labeller = as_labeller(media_names)) +
+  geom_text(data = data %>% 
+              mutate(month = as.yearmon(data$date)) %>% 
+              group_by(source) %>% 
+              summarise(n = n()) %>% 
+              mutate(lab = paste0("Total: ", n)), 
+            aes(label = lab, x = as.Date("01-03-2016", format = "%d-%m-%Y"), y = 800, fontface = 2), inherit.aes = F, size = 3)+
   labs(#title= "Monthly articles per media",
        #subtitle = "Based on the cleaned and preprocessed data",
        x = "", y = "Articles per month") +
@@ -148,6 +154,10 @@ ggplot(posts_per_m, aes(x = as.Date(month), y=n, group = source)) +
   theme(legend.position = "none", 
         strip.background = element_rect(fill = "#FFFFFF"),
         strip.text.x = element_text(size = 10, face = "bold"))
+
+ggplot(posts_per_m %>% filter(source == "cnf"), aes(x = n, fill = source))+
+  geom_histogram(position = "dodge", colour = "black", alpha = 0.8, binwidth = 10)+
+  labs(x="", y="")+theme(legend.position = "none")
 
 # Table with summary data
 data %>% 
@@ -162,4 +172,5 @@ data %>%
          "Avg per month" = avg_art_m,
          "Min" = min,
          "Max" = max) %>% 
-  stargazer(type ="text", summary = F)
+  stargazer(type ="html", summary = F, style = "qje", header = F, report = "vc*",
+            single.row = F, no.space = T, digits = 2)
