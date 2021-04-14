@@ -40,7 +40,7 @@ all_defi <- union(defi,defi_service)
 defi <- data[all_defi,]
 
 # Terms related to regulations (P)
-defi_reg <-  grep(" regulat|\bregulation\b|\blegislation\b|\bdeficit\b||White House|Federal Reserve|\bCongress\b| supreme court| government| European Commission|legislat|\bESMA\b|\bECB\b|\bFCA\b|\bEBA\b|\bjurisdiction\b|\bSEC\b|\bcompliance\b|\bFATF\b|\bFSB\b| central bank|Financial Stability Board|Financial Action Task Force|Financial conduct authority", defi$text, ignore.case = T)
+defi_reg <-  grep(" regulat|\bCongress\b| supreme court| government| European Commission|legislat|\bESMA\b|\bECB\b|\bFCA\b|\bEBA\b|\bjurisdiction\b|\bSEC\b|\bcompliance\b|\bFATF\b|\bFSB\b| central bank|Financial Stability Board|Financial Action Task Force|Financial conduct authority", defi$text, ignore.case = T)
 defi_reg <- defi[defi_reg,]
 
 # Basic terms related to uncertainty (U)
@@ -66,9 +66,9 @@ epu_naive <- normalize(epu_base_yw)
 # Annotations
 label <- data.frame(
   yw = c(as.Date("2020-03-28"), as.Date("2019-07-18"), as.Date("2020-11-07"), 
-         as.Date("2018-02-10"), as.Date("2021-03-09"), as.Date("2019-08-31"), 
+         as.Date("2018-02-10"), as.Date("2021-03-10"), as.Date("2019-08-31"), 
          as.Date("2020-06-05"), as.Date("2020-01-10")), 
-  norm = c(445, 300, 285, 285, 245, 185, 225, 265), 
+  norm = c(615, 465, 345, 435, 205, 285, 275, 405), 
   label = c(paste("COVID-19", "Phase I", sep = "\n"),
             paste("Libra hearing", "in Senate", sep = "\n"),
             paste("US Presidential", "Election", sep = "\n"),
@@ -90,7 +90,7 @@ ggplot(epu_naive, aes(x = as.Date(yw), y = norm))+
 # Use the following to check the articles within a certain range
 a <- epu_base %>% 
   mutate(yw = yearweek(date)) %>% 
-  filter(yw == yearweek("2020 W04"))
+  filter(yw == yearweek("2020 W53"))
 
 a <- defi_lab %>% 
   mutate(yw = yearweek(date)) %>% 
@@ -201,11 +201,11 @@ defi_lab %>%
 auc_plot <- ggplot(as.data.frame(auc), aes(y = auc, x = c(0:7)))+
   geom_line(linetype = 1, colour = "black", alpha = 1, size = 0.75)+
   #geom_hline(yintercept = 0, linetype = "dotted", colour = "black", alpha = 0.5)+
-  coord_cartesian(ylim = c(0, 1))+
-  scale_y_continuous(breaks = seq(0, 1, by = 0.2))+
+  coord_cartesian(ylim = c(0.4, 1))+
+  scale_y_continuous(breaks = seq(0.4, 1, by = 0.2))+
   scale_x_continuous(breaks = seq(0, 7, by = 2))+
-  labs(x = "Iteration", y = "AUC", title = "Evolution of AUC throughout AL process",
-       subtitle = "AUC on the test set were collected after each iteration") +
+  labs(#title = "Evolution of AUC throughout AL process", subtitle = "AUC on the test set were collected after each iteration",
+       x = "Iteration", y = "AUC") +
   theme(plot.title = element_text(hjust = 0.5, vjust = 0.5, size = 10, face = "bold"),
         plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
 
@@ -260,15 +260,80 @@ ggplot(epu_mod_yw, aes(x = yw, y = n_articles)) +
 
 epu_mod <- normalize(epu_mod_yw)
 
+### Plotting naive index ----
+# Annotations
+label <- data.frame(
+  yw = c(as.Date(yearweek("2018 W12")),#A
+         as.Date(yearweek("2018 W37")),#B
+         as.Date("2019-06-29"),#C
+         as.Date("2019-07-18"),#D
+         as.Date(yearweek("2019 W38")),#E
+         as.Date("2019-10-16"),#F
+         as.Date(yearweek("2019 W45")),#G
+         as.Date(yearweek("2019 W51")),#H
+         as.Date(yearweek("2020 W04")),#I
+         as.Date("2020-02-21"),#J
+         as.Date(yearweek("2020 W16")),#K
+         as.Date(yearweek("2020 W22")),#L
+         as.Date(yearweek("2020 W38")),#M
+         as.Date(yearweek("2020 W42")),#N
+         as.Date(yearweek("2021 W08"))), 
+  norm = c(435, #A
+           200, #B
+           305, #C
+           340, #D
+           295, #E
+           485, #F
+           290, #G
+           320, #H
+           350, #I
+           425, #J
+           790, #K
+           210, #L
+           235, #M
+           295,#N
+           325), #O
+  label = c(paste("A", sep = "\n"),
+            paste("B", sep = "\n"),
+            paste("C", sep = "\n"),
+            paste("D", sep = "\n"),
+            paste("E", sep = "\n"),
+            paste("F", sep = "\n"),
+            paste("G", sep = "\n"),
+            paste("H", sep = "\n"),
+            paste("I", sep = "\n"),
+            paste("J", sep = "\n"),
+            paste("K", sep = "\n"),
+            paste("L", sep = "\n"),
+            paste("M", sep = "\n"),
+            paste("N", sep = "\n"),
+            paste("O", sep = "\n")))
+
+ggplot(epu_mod, aes(x = as.Date(yw), y = norm))+
+  ggplot2::annotate(geom = "rect", xmin=as.Date("2020-03-01"), xmax=as.Date("2020-05-05"), ymin=0, ymax=Inf, fill = "lightgreen", alpha = 0.3)+
+  geom_line(colour = "darkred", alpha = 0.9)+
+  geom_text(data = label, aes(label = label), size = 4)+
+  labs(#title = "Index of Economic Policy Uncertainty for DeFi",
+    y = " Economic Policy Uncertainty",
+    x = "") 
+#+ theme(plot.title = element_text(hjust = 0.5, vjust = 0.5, size = 15, face = "bold"), plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
+
+# Use the following to check the articles within a certain range
+a <- defi_lab %>% 
+  mutate(yw = yearweek(date)) %>% 
+  filter(yw == yearweek("2021 W08"),
+         y_pred == "Yes")
+
 ## Combine and save the results ----
 left_join(epu_naive, epu_mod, by = "yw") %>% 
   rename("Naive" = norm.x,
          "AL Mod" = norm.y) %>% 
   melt(id = "yw") %>% 
   ggplot(aes(x = as.Date(yw)))+
-  geom_line(aes(y = value, colour = variable))+
+  geom_line(aes(y = value, colour = variable), alpha=0.7)+
   labs(x = "", y = "EPU", colour = "Method")+
-  theme(legend.position = "bottom")
+  theme(legend.position = "top")+ 
+  scale_color_manual(values=c("darkblue", "darkred"))
 
 idx$y_pred <- prd1
 
