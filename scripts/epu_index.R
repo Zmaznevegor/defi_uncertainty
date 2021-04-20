@@ -340,3 +340,23 @@ idx$y_pred <- prd1
 write.csv(left_join(epu_naive, epu_mod, by = "yw") %>% 
             rename("Naive" = norm.x,
                    "AL Mod" = norm.y), file = "data/epu_results.csv", row.names = F)
+
+# EPU index with the daily frequency ----
+daily_naive <- epu_base %>% 
+  group_by(date, source) %>% 
+  summarise(n_articles = n()) %>% 
+  ungroup() %>% 
+  normalize_daily()
+
+daily_mod <- defi_lab %>% 
+  filter(y_pred == "Yes") %>% 
+  select(date, source, y_pred) %>% 
+  group_by(date, source) %>% 
+  summarise(n_articles = n()) %>% 
+  ungroup() %>% normalize_daily()
+
+ggplot(daily_mod, aes(x = as.Date(date), y = norm))+
+  geom_line(colour = "darkblue", alpha = 0.9)+
+  labs(#title = "Index of Economic Policy Uncertainty for DeFi",
+    y = " Economic Policy Uncertainty",
+    x = "") 
