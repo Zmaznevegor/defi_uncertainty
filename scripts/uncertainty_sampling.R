@@ -182,3 +182,41 @@ normalize <- function(x){
   
   return(epu %>% select(yw, norm))
 }
+
+normalize_daily <- function(x){
+  data_daily <- data %>% 
+    group_by(date, source) %>% 
+    summarise(n_articles = n())
+  
+  scale <- left_join(data_daily, x, by = c("date", "source")) %>% 
+    rename(n_articles = n_articles.x,
+           epu_articles = n_articles.y) %>% 
+    replace_na(list(epu_articles = 0)) %>% 
+    filter(date > as.Date(yearweek("2017 W51")),
+           date < as.Date(yearweek("2021 W12")))
+  
+  wk <- scale %>% 
+    group_by(date) %>% 
+    summarise(articles = sum(n_articles),
+              epu_a = sum(epu_articles))
+  
+  t1 <- wk$date[1:round(0.8*length(wk$date))]
+  t2 <- wk$date[(length(t1)+1):length(wk$date)]
+  
+  base <- scale %>% 
+    mutate(scaled = epu_articles/n_articles)
+  sd1 <- with(base, sd(scaled[scale$date %in% t1]))
+  
+  m <- base %>% mutate(stnd = scaled/sd1) %>% 
+    group_by(date) %>% 
+    summarise(m = mean(stnd)) %>% 
+    filter(date %in% t2)
+  
+  epu <- base %>% 
+    mutate(stnd = scaled/sd1) %>% 
+    group_by(date) %>% 
+    summarise(stnd1 = mean(stnd)) %>% 
+    mutate(norm = stnd1/mean(m$m)*100)
+  
+  return(epu %>% select(date, norm))
+}
