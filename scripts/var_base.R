@@ -30,14 +30,19 @@ tvl <- read.csv("data/defi/tvl_data.csv") %>%
   filter(yw > yearweek("2017 W51"),
          yw < yearweek("2021 W12")) %>% 
   group_by(yw, token) %>% 
-  slice(1)
+  summarise_at(vars(tvleth, tvlusd), list(avg = mean)) %>% 
+  rename(tvleth = tvleth_avg,
+         tvlusd = tvlusd_avg)
 
 tvl_daily <- read.csv("data/defi/tvl_data.csv") %>% 
   mutate(date = as.Date(time)) %>% 
   dplyr::select(date, tvlusd, tvleth, token) %>% 
   filter(date > as.Date(yearweek("2017 W51")),
          date < as.Date(yearweek("2021 W12"))) %>% 
-  group_by(date, token)
+  group_by(date, token) %>% 
+  summarise_at(vars(tvleth, tvlusd), list(avg = mean)) %>% 
+  rename(tvleth = tvleth_avg,
+         tvlusd = tvlusd_avg)
 
 # Plot the data
 ggplot(tvl, aes(x = as.Date(yw), y = tvleth)) +
@@ -50,26 +55,7 @@ tvl %>%
   geom_line(aes(y = log(tvlusd)), colour = "red")+
   geom_line(aes(y = log(tvleth)), colour = "black")
 
-## Import gas and difficulty stats ----
-# Block difficulty
-bldif <- read.csv("data/defi/export-BlockDifficulty.csv") %>% 
-  mutate(yw = yearweek(as.Date(Date.UTC., format = "%m/%d/%Y"))) %>% 
-  dplyr::select(yw, Value) %>% 
-  group_by(yw) %>% 
-  summarise_at(vars(Value), list(avg.diff = mean)) %>% 
-  filter(yw > yearweek("2017 W51"), yw < yearweek("2021 W12")) %>% ungroup()
-
-bldif_daily <- read.csv("data/defi/export-BlockDifficulty.csv") %>% 
-  mutate(date = as.Date(Date.UTC., format = "%m/%d/%Y")) %>% 
-  dplyr::select(date, Value) %>% 
-  group_by(date) %>% 
-  summarise_at(vars(Value), list(avg.diff = mean)) %>% 
-  filter(date > as.Date(yearweek("2017 W51")), date < as.Date(yearweek("2021 W12"))) %>% ungroup()
-
-ggplot(bldif, aes(x = as.Date(yw), y = avg.diff)) +
-  geom_line()+
-  labs(x = "", y = "Average Block Difficultry")
-
+## Import gas stats ----
 # Gas price
 gas <- read.csv("data/defi/export-AvgGasPrice.csv") %>% 
   mutate(yw = yearweek(as.Date(Date.UTC., format = "%m/%d/%Y")),
@@ -97,7 +83,7 @@ contracts <- read.csv("data/defi/export-verified-contracts.csv") %>%
          Value = No..of.Verified.Contracts) %>% 
   dplyr::select(yw, Value) %>% 
   group_by(yw) %>% 
-  summarise_at(vars(Value), list(avg.verf = mean)) %>% 
+  summarise_at(vars(Value), list(sum.verf = sum)) %>% 
   filter(yw > yearweek("2017 W51"), yw < yearweek("2021 W12")) %>% ungroup()
 
 contracts_daily <- read.csv("data/defi/export-verified-contracts.csv") %>% 
@@ -105,30 +91,29 @@ contracts_daily <- read.csv("data/defi/export-verified-contracts.csv") %>%
          Value = No..of.Verified.Contracts) %>% 
   dplyr::select(date, Value) %>% 
   group_by(date) %>% 
-  summarise_at(vars(Value), list(avg.verf = mean)) %>% 
+  summarise_at(vars(Value), list(sum.verf = sum)) %>% 
   filter(date > as.Date(yearweek("2017 W51")), date < as.Date(yearweek("2021 W12"))) %>% ungroup()
 
-ggplot(contracts, aes(x = as.Date(yw), y = avg.verf)) +
+ggplot(contracts, aes(x = as.Date(yw), y = sum.verf)) +
   geom_line()+
   labs(x = "", y = "Average Contracts Verified")
 
 ## Combine the results ----
 inp <- epu %>% 
+  mutate(yw = yearweek(yw)) %>% 
   left_join(tvl %>% filter(token == "maker"), by = "yw") %>% 
-  left_join(bldif, by = "yw") %>% 
   left_join(gas, by = "yw") %>% 
   left_join(contracts, by ="yw") %>% 
-  dplyr::select(yw, mod, avg.verf, avg.diff, avg.gas, tvleth, tvlusd) %>% 
+  dplyr::select(yw, mod, sum.verf, avg.gas, tvleth, tvlusd) %>% 
   as_tsibble(index = yw) %>% 
   drop_na()
 
 inp_daily <- daily_mod %>% 
   mutate(date = as.Date(date)) %>% 
   left_join(tvl_daily %>% filter(token == "maker"), by = "date") %>% 
-  left_join(bldif_daily, by = "date") %>% 
   left_join(gas_daily, by = "date") %>% 
   left_join(contracts_daily, by ="date") %>% 
-  dplyr::select(date, norm, avg.verf, avg.diff, avg.gas, tvleth, tvlusd) %>% 
+  dplyr::select(date, norm, sum.verf, avg.gas, tvleth, tvlusd) %>% 
   rename(mod = norm) %>% 
   as_tsibble(index = date) %>% 
   drop_na()
@@ -137,7 +122,7 @@ inp_daily <- daily_mod %>%
 write.csv(inp, file = "data/inp.csv", row.names = F)
 write.csv(inp_daily, file = "data/inp_daily.csv", row.names = F)
 
-a <- ts(inp[,2:7], frequency=53,
+a <- ts(inp[,2:6], frequency=52,
         start= c(year(inp$yw[1]),week(inp$yw[1])),
         end = c(year(inp$yw[length(inp$yw)]),week(inp$yw[length(inp$yw)])))
 
@@ -146,7 +131,7 @@ autoplot(a[,1])+
   ggtitle("Weekly EPU for DeFi services") +
   ylab("Index") + xlab("Week")
 
-autoplot(log(a[,5]))+
+autoplot(log(a[,4]))+
   ggtitle("TVL for the DeFi") +
   ylab("TVL") + xlab("Week")
 
@@ -161,11 +146,11 @@ diff(log(a[,6])) %>% checkresiduals()
 # Select best VAR ----
 ## With weekly EPU ----
 ### For Maker ----
-mtr <- cbind(epu = a[,1],
-             contracts = log(a[,2]),
-             gas = log(a[,4]),
-             tvleth = log(a[,6])
-             #tvlusd = diff(log(a[,6]))
+mtr <- cbind(epu = a[,"mod"],
+             contracts = log(a[,"sum.verf"]),
+             gas = log(a[,"avg.gas"]),
+             tvleth = a[,"tvleth"]
+             #tvlusd = log(a[,"tvlusd"])
              )
 
 VARselect(mtr, type="both", lag.max = 12)[["selection"]]
@@ -188,7 +173,6 @@ svar
 
 # Impulse response functions
 irf <- irf(svar, impulse = "epu", response = "tvleth", ortho = T, n.ahead = 12, boot = TRUE)
-
 plot(irf, ylab = "output", main = "Shock from uncertainty")
 
 
@@ -207,8 +191,6 @@ irf[["irf"]][["epu"]] %>% as.data.frame() %>%
        x = "Lag", y = "") +
   theme(plot.title = element_text(hjust = 0.5, vjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
-
-# TODO: try with summed verified transactions
 
 VARselect(cbind(epu = diff(a[,1]), 
                 tvl = diff(log(a[,5]))),
@@ -241,7 +223,7 @@ irf[["irf"]][["epu"]] %>% as.data.frame() %>%
 
 
 ## With daily EPU ----
-a <- ts(inp_daily[,2:7], frequency=365,
+a <- ts(inp_daily[,2:6], frequency=365,
         start= c(year(inp_daily$date[1]), yday(inp_daily$date[1])),
         end = c(year(inp_daily$date[length(inp_daily$date)]), yday(inp_daily$date[length(inp_daily$date)])))
 
@@ -254,7 +236,6 @@ autoplot(log(a[,5]))+
   ggtitle("TVL for the DeFi") +
   ylab("TVL") + xlab("Week")
 
-
 a[,1] %>% checkresiduals()
 diff(a[,2]) %>% checkresiduals()
 diff(a[,3]) %>% checkresiduals()
@@ -262,11 +243,11 @@ diff(log(a[,4])) %>% checkresiduals()
 diff(log(a[,5])) %>% checkresiduals()
 diff(a[,6]) %>% checkresiduals()
 
-mtr <- cbind(epu = a[,1],
-             contracts = log(a[,2]),
-             gas = log(a[,4]),
-             tvleth = log(a[,6])
-             #tvlusd = diff(log(a[,6]))
+mtr <- cbind(epu = a[,"mod"],
+             contracts = log(a[,"sum.verf"]),
+             gas = log(a[,"avg.gas"]),
+             tvleth = a[,"tvleth"]
+             #tvlusd = log(a[,"tvlusd"])
 )
 
 VARselect(mtr, type="both", lag.max = 30)[["selection"]]
