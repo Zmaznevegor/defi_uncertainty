@@ -20,7 +20,7 @@ library(fpp3)
 # Custom functions for AL
 source(file = "scripts/uncertainty_sampling.R")
 
-# Theming for graphs
+# Common theme for the plots
 theme_set(theme_minimal())
 
 # Cleaned data load
@@ -66,9 +66,9 @@ epu_naive <- normalize(epu_base_yw)
 # Annotations
 label <- data.frame(
   yw = c(as.Date("2020-03-28"), as.Date("2019-07-18"), as.Date("2020-11-07"), 
-         as.Date("2018-02-10"), as.Date("2021-03-10"), as.Date("2019-08-31"), 
+         as.Date("2018-02-10"), as.Date("2021-03-15"), as.Date("2019-08-31"), 
          as.Date("2020-06-05"), as.Date("2020-01-10")), 
-  norm = c(615, 465, 345, 435, 205, 285, 275, 405), 
+  norm = c(640, 490, 370, 455, 220, 300, 290, 420), 
   label = c(paste("COVID-19", "Phase I", sep = "\n"),
             paste("Libra hearing", "in Senate", sep = "\n"),
             paste("US Presidential", "Election", sep = "\n"),
@@ -278,21 +278,21 @@ label <- data.frame(
          as.Date(yearweek("2020 W38")),#M
          as.Date(yearweek("2020 W42")),#N
          as.Date(yearweek("2021 W08"))), 
-  norm = c(435, #A
-           200, #B
-           305, #C
-           340, #D
-           295, #E
-           485, #F
-           290, #G
-           320, #H
-           350, #I
-           425, #J
-           790, #K
-           210, #L
-           235, #M
-           295,#N
-           325), #O
+  norm = c(465, #A
+           210, #B
+           320, #C
+           360, #D
+           315, #E
+           520, #F
+           305, #G
+           340, #H
+           375, #I
+           455, #J
+           840, #K
+           225, #L
+           250, #M
+           315,#N
+           345), #O
   label = c(paste("A", sep = "\n"),
             paste("B", sep = "\n"),
             paste("C", sep = "\n"),
@@ -327,12 +327,12 @@ a <- defi_lab %>%
 ## Combine and save the results ----
 left_join(epu_naive, epu_mod, by = "yw") %>% 
   rename("Naive" = norm.x,
-         "AL Mod" = norm.y) %>% 
+         "AL Modification" = norm.y) %>% 
   melt(id = "yw") %>% 
   ggplot(aes(x = as.Date(yw)))+
   geom_line(aes(y = value, colour = variable), alpha=0.7)+
-  labs(x = "", y = "EPU", colour = "Method")+
-  theme(legend.position = "top")+ 
+  labs(x = "", y = "Economic Policy Uncertainty", colour = "")+
+  theme(legend.position = c(.91, .93))+ 
   scale_color_manual(values=c("darkblue", "darkred"))
 
 idx$y_pred <- prd1

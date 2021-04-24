@@ -152,7 +152,7 @@ normalize <- function(x){
     rename(n_articles = n_articles.x,
            epu_articles = n_articles.y) %>% 
     replace_na(list(epu_articles = 0)) %>% 
-    filter(yw > yearweek("2017 W51"),
+    filter(yw > yearweek("2017 W30"),
            yw < yearweek("2021 W12"))
   
   ggplot(scale, aes(x = yw, y = epu_articles, colour = source))+ geom_line()
@@ -180,7 +180,7 @@ normalize <- function(x){
     summarise(stnd1 = mean(stnd)) %>% 
     mutate(norm = stnd1/mean(m$m)*100)
   
-  return(epu %>% select(yw, norm))
+  return(epu %>% dplyr::select(yw, norm))
 }
 
 normalize_daily <- function(x){
@@ -192,7 +192,7 @@ normalize_daily <- function(x){
     rename(n_articles = n_articles.x,
            epu_articles = n_articles.y) %>% 
     replace_na(list(epu_articles = 0)) %>% 
-    filter(date > as.Date(yearweek("2017 W51")),
+    filter(date > as.Date(yearweek("2017 W30")),
            date < as.Date(yearweek("2021 W12")))
   
   wk <- scale %>% 
@@ -219,4 +219,44 @@ normalize_daily <- function(x){
     mutate(norm = stnd1/mean(m$m)*100)
   
   return(epu %>% select(date, norm))
+}
+
+irf_usd <- function(irf){
+  irf[["irf"]][["epu"]] %>% as.data.frame() %>% 
+    ggplot(aes(y = tvlusd, x = c(1:13)))+
+    geom_line(linetype = 2, colour = "black", alpha = 1, size = 0.75)+
+    geom_line(data = irf[["Lower"]][["epu"]] %>% as.data.frame(), aes(y = tvlusd, x =c(1:13)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
+    geom_line(data = irf[["Upper"]][["epu"]] %>% as.data.frame(), aes(y = tvlusd, x =c(1:13)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
+    geom_hline(yintercept = 0, linetype = "dotted", colour = "black", alpha = 0.5)+
+    coord_cartesian(ylim = c(min(irf[["Lower"]][["epu"]])-0.05,
+                             max(irf[["Upper"]][["epu"]])+0.05),
+                    xlim = c(1,13))+
+    scale_y_continuous(breaks = seq(round(min(irf[["Lower"]][["epu"]])-0.05, 1), 
+                                    round(max(irf[["Upper"]][["epu"]])+0.05, 1),
+                                    by = 0.05))+
+    scale_x_continuous(breaks = seq(1, 12, by = 2))+
+    labs(subtitle = "Modified DeFi EPU index", title = "Effect of uncertainty impulse on TVL (USD)",
+         x = "Lag", y = "") +
+    theme(plot.title = element_text(hjust = 0.5, vjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
+}
+
+irf_eth <- function(irf){
+  irf[["irf"]][["epu"]] %>% as.data.frame() %>% 
+    ggplot(aes(y = tvleth, x = c(1:13)))+
+    geom_line(linetype = 2, colour = "black", alpha = 1, size = 0.75)+
+    geom_line(data = irf[["Lower"]][["epu"]] %>% as.data.frame(), aes(y = tvleth, x =c(1:13)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
+    geom_line(data = irf[["Upper"]][["epu"]] %>% as.data.frame(), aes(y = tvleth, x =c(1:13)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
+    geom_hline(yintercept = 0, linetype = "dotted", colour = "black", alpha = 0.5)+
+    coord_cartesian(ylim = c(min(irf[["Lower"]][["epu"]])-0.05,
+                             max(irf[["Upper"]][["epu"]])+0.05),
+                    xlim = c(1,13))+
+    scale_y_continuous(breaks = seq(round(min(irf[["Lower"]][["epu"]])-0.05, 1), 
+                                    round(max(irf[["Upper"]][["epu"]])+0.05, 1),
+                                    by = 0.05))+
+    scale_x_continuous(breaks = seq(1, 12, by = 2))+
+    labs(subtitle = "Modified DeFi EPU index", title = "Effect of uncertainty impulse on TVL (ETH)",
+         x = "Lag", y = "") +
+    theme(plot.title = element_text(hjust = 0.5, vjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
 }
