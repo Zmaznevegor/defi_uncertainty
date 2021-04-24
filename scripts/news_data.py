@@ -477,35 +477,82 @@ def collect_tvl(wp):
     time = []
     tvlusd = []
     tvleth = []
-    dai = []
 
     for i in wp:
-        time.append(datetime.fromtimestamp(i['timestamp']))
+        time.append(datetime.fromtimestamp(int(i['timestamp'])))
         tvlusd.append(i['tvlUSD'])
         tvleth.append(i['tvlETH'])
-        dai.append(i['DAI'])
 
-    result = pd.DataFrame(columns=['time', 'tvlusd', 'tvleth', 'dai'])
+    result = pd.DataFrame(columns=['time', 'tvlusd', 'tvleth'])
     result['time'] = time
     result['tvlusd'] = tvlusd
     result['tvleth'] = tvleth
-    result['dai'] = dai
 
     return result
 
 
-# Collect TVL data
-frames = []
-defi = ['maker', 'uniswap', 'compound']
+# Get all the DeFi listed
+cmc = requests.get('https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project=all&resolution=history')
+webpage = cmc.json()
+result = collect_tvl(webpage)
 
-for i in defi:
-    cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project={i}&resolution=history')
+result.time = pd.to_datetime(result.time, infer_datetime_format=True, utc=True)
+result.time = result.time.dt.date
+result.to_csv(data_folder + '/defi/tvl_all.csv', index=False)
+
+# Collect TVL data for the categories
+category = ['lending', 'dexes', 'derivatives', 'payments', 'assets']
+frames = []
+
+for i in category:
+    cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project=all&category={i}')
     webpage = cmc.json()
     result = collect_tvl(webpage)
-    result['token'] = i
+    result['category'] = i
     frames.append(result)
 
 result = pd.concat(frames, ignore_index=True)
 result.time = pd.to_datetime(result.time, infer_datetime_format=True, utc=True)
 result.time = result.time.dt.date
-result.to_csv(data_folder + '/defi/tvl_data.csv', index=False)
+result.to_csv(data_folder + '/defi/tvl_categories.csv', index=False)
+
+# Collect lending history for Maker
+cmc = requests.get('https://data-api.defipulse.com/api/v1/defipulse/api/getLendingHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project=all&resolution=history&period=all')
+webpage = cmc.json()
+
+time = []
+borrow_rate =[]
+lend_rate = []
+
+for i in webpage:
+    time.append(datetime.fromtimestamp(int(i['timestamp'])))
+    borrow_rate.append(i['borrow_rates']['maker'])
+    lend_rate.append(i['lend_rates']['maker'])
+
+result_maker = pd.DataFrame(columns=['time', 'borrow_rate', 'lend_rate'])
+result_maker['time'] = time
+result_maker['borrow_rate'] = borrow_rate
+result_maker['lend_rate'] = lend_rate
+
+result_maker.time = pd.to_datetime(result_maker.time, infer_datetime_format=True, utc=True)
+result_maker.time = result_maker.time.dt.date
+result_maker.to_csv(data_folder + '/defi/lending/maker_rates.csv', index=False)
+
+# Collect lending history for Compound
+time = []
+borrow_rate =[]
+lend_rate = []
+
+for i in webpage:
+    time.append(datetime.fromtimestamp(int(i['timestamp'])))
+    borrow_rate.append(i['borrow_rates']['compound'])
+    lend_rate.append(i['lend_rates']['compound'])
+
+result_compound = pd.DataFrame(columns=['time', 'borrow_rate', 'lend_rate'])
+result_compound['time'] = time
+result_compound['borrow_rate'] = borrow_rate
+result_compound['lend_rate'] = lend_rate
+
+result_compound.time = pd.to_datetime(result_compound.time, infer_datetime_format=True, utc=True)
+result_compound.time = result_compound.time.dt.date
+result_compound.to_csv(data_folder + '/defi/lending/compound_rates.csv', index=False)
