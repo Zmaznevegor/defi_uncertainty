@@ -3,6 +3,7 @@
 library(dplyr)
 library(tidyr)
 library(reshape2)
+library(readxl)
 
 # Data representation and visuals
 library(ggplot2)
@@ -56,9 +57,10 @@ epu_base <- pu_base[econ,]
 epu_base_yw <- epu_base %>%
   mutate(yw = yearweek(date)) %>% 
   group_by(yw, source) %>% 
-  summarise(n_articles = n())
+  summarise(n_articles = n()) %>% 
+  as_tsibble(index = yw, key = source)
 
-ggplot(epu_base_yw, aes(x = yw, y = n_articles))+geom_line()
+ggplot(epu_base_yw, aes(x = yw, y = n_articles))+geom_line(aes(colour = source))
 
 epu_naive <- normalize(epu_base_yw)
 
@@ -213,7 +215,7 @@ auc_plot <- ggplot(as.data.frame(auc), aes(y = auc, x = c(0:7)))+
 write.csv(defi_lab, file = "data/labbed.csv", row.names = F)
 
 # ITERATING: after the top 100 most uncertain rows are found
-# rerun the code lines with spliiting, modeling and predicting to check the updated model
+# rerun the code lines with splitting, modeling and predicting to check the updated model
 # save AUC results for the further plotting
 # repeat sampling and modeling till AUC doe not improve
 
@@ -239,6 +241,7 @@ n <- fit1$finalModel@coef[[1]]
 n%*%m %>% t() %>% 
   as.data.frame() %>% 
   rename(weight = V1) %>% 
+  filter(weight != 0) %>% 
   arrange((weight)) %>% 
   head(20)
 
@@ -253,10 +256,11 @@ epu_mod_yw <- defi_lab %>%
   select(date, source, y_pred) %>% 
   mutate(yw = yearweek(date)) %>% 
   group_by(yw, source) %>% 
-  summarise(n_articles = n())
+  summarise(n_articles = n()) %>% 
+  as_tsibble(index = yw, key = source)
 
 ggplot(epu_mod_yw, aes(x = yw, y = n_articles)) +
-  geom_line()
+  geom_line(aes(colour = source))
 
 epu_mod <- normalize(epu_mod_yw)
 
@@ -350,7 +354,7 @@ daily_naive <- epu_base %>%
 
 daily_mod <- defi_lab %>% 
   filter(y_pred == "Yes") %>% 
-  select(date, source, y_pred) %>% 
+  dplyr::select(date, source, y_pred) %>% 
   group_by(date, source) %>% 
   summarise(n_articles = n()) %>% 
   ungroup() %>% normalize_daily()
@@ -360,3 +364,108 @@ ggplot(daily_mod, aes(x = as.Date(date), y = norm))+
   labs(#title = "Index of Economic Policy Uncertainty for DeFi",
     y = " Economic Policy Uncertainty",
     x = "") 
+
+write.csv(left_join(daily_naive, daily_mod, by = "date") %>% 
+            rename("Naive" = norm.x,
+                   "AL Mod" = norm.y), file = "data/epu_results_daily.csv", row.names = F)
+
+# Check correlation statistics ----
+# Preprocess to a monthly basis
+epu_mod_ym <- defi_lab %>% 
+  filter(y_pred == "Yes") %>% 
+  select(date, source, y_pred) %>% 
+  mutate(ym = yearmonth(date)) %>% 
+  group_by(ym, source) %>% 
+  summarise(n_articles = n()) %>%
+  as_tsibble(index = ym, key = source) %>% 
+  normalize_monthly()
+
+ggplot(epu_mod_ym, aes(x = as.Date(ym), y = norm))+
+  geom_line()
+
+ggplot(epu_base_ym, aes(x = as.Date(ym), y = norm))+
+  geom_line()
+
+epu_base_ym <- epu_base %>%
+  mutate(ym = yearmonth(date)) %>% 
+  group_by(ym, source) %>% 
+  summarise(n_articles = n()) %>% 
+  normalize_monthly()
+
+# Check the correlation metrics
+cor(epu_mod_ym$norm, epu_base_ym$norm)
+
+# Import data for states and categories
+epu_country <- read_excel("~/Downloads/All_Country_Data.xlsx") %>% 
+  select(-c("Sweden", "Mexico")) %>% 
+  na.omit() %>% 
+  mutate(ym = zoo::as.yearmon(paste0(Year, "-", Month))) %>% 
+  mutate(ym = yearmonth(ym)) %>% 
+  select(-c("Year", "Month")) %>% 
+  relocate(ym)
+
+epu_cat <- read_xlsx("~/Downloads/Categorical_EPU_Data.xlsx") %>% 
+  na.omit() %>% 
+  mutate(ym = yearmonth(openxlsx::convertToDate(Date))) %>% 
+  relocate(ym) %>% 
+  select(-Date)
+
+# Combine data and fill in the missing months
+epu_state_full <- full_join(epu_base_ym, epu_mod_ym, by = "ym") %>% 
+  rename(naive = norm.x,
+         mod = norm.y) %>% 
+  full_join(epu_country %>% 
+              filter(ym > yearmonth("2017-06")), by = "ym") %>% 
+  replace_na(list(naive = 0, mod = 0))
+
+epu_cat_full <- full_join(epu_cat %>% 
+              filter(ym > yearmonth("2017-06")),
+              full_join(epu_base_ym, epu_mod_ym, by = "ym") %>% 
+                rename(naive = norm.x,
+                       mod = norm.y), by = "ym") %>% 
+  replace_na(list(naive = 0, mod = 0)) %>% 
+  slice(-45)
+
+# Check orrelation for countries
+cor(epu_state_full[,5:27], epu_state_full[,2:3]) %>% 
+  as.data.frame() %>% 
+  arrange(desc(naive))
+
+# Correlation for categories
+rs <- Hmisc::rcorr(as.matrix(epu_cat_full[2:15]))
+cor_cat <- rs$P[1:12, c('naive', 'mod')] %>% 
+  as.data.frame() %>% 
+  mutate(mod.sign = ifelse(mod < 0.01, "Significant", "Insignificant"),
+         naive.sign = ifelse(naive < 0.01, "Significant", "Insignificant")) %>% 
+  rename(p.naive = naive,
+         p.mod = mod) %>% 
+  bind_cols(as.data.frame(rs$r[1:12,c('naive', 'mod')])) %>% 
+  relocate(mod, naive) %>% 
+  arrange(desc(mod)) %>% 
+  rename("AL Modified" = mod,
+         "Naive" = naive)
+
+rownames(cor_cat) <- c('Financial Regulation', 'Regulation', 'Monetary Policy',
+                       'Economic Policy Uncertainty', 'Fiscal Policy (Taxes + Spending)', 'Healthcare',
+                       'Taxes', 'Entitlement Programs', 'National Security',
+                       'Sovereign Debt // Currency Crisis', 'Government Spending', 'Trade Policy')
+
+
+cor_long <- cor_cat %>% 
+  mutate("AL Modified" = ifelse(mod.sign == "Significant", `AL Modified`, NA),
+         "Naive" = ifelse(naive.sign == "Significant", `Naive`, NA)) %>% 
+  select("AL Modified", "Naive") %>%
+  rownames_to_column("Type") %>% 
+  gather(Index, Correlation, 2:3) %>% 
+  arrange(desc(Correlation))
+  
+ggplot(cor_long, aes(x = Index, y = Type, fill = Correlation))+
+  geom_tile(width = 0.99)+
+  #scale_fill_gradient(low = "bisque", high = "deeppink3",na.value ="white")+
+  scale_fill_distiller(palette = "RdPu", na.value ="white", direction = 1)+
+  scale_y_discrete(limits = rev(rownames(cor_cat)))+
+  scale_x_discrete(expand = c(0, 0), position = "top")+
+  geom_text(aes(label = round(Correlation, 2)), colour = "black", size = 3.1)+
+  labs(x = "", y = "")+
+  theme(legend.position = "none",
+        axis.text.x = element_text(face = "bold"))

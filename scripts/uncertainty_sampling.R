@@ -142,11 +142,14 @@ lab_unc <- function(x, n){
   return(x)
 }
 
+
+# EPU Normalisation ----
 normalize <- function(x){
   data_yw <- data %>% 
     mutate(yw = yearweek(date)) %>% 
     group_by(yw, source) %>% 
-    summarise(n_articles = n())
+    summarise(n_articles = n()) %>% 
+    as_tsibble(index = yw, key = source)
   
   scale <- left_join(data_yw, x, by = c("yw", "source")) %>% 
     rename(n_articles = n_articles.x,
@@ -218,44 +221,135 @@ normalize_daily <- function(x){
     summarise(stnd1 = mean(stnd)) %>% 
     mutate(norm = stnd1/mean(m$m)*100)
   
-  return(epu %>% select(date, norm))
+  return(epu %>% dplyr::select(date, norm))
 }
 
-irf_usd <- function(irf){
+normalize_monthly <- function(x){
+  data_ym <- data %>% 
+    mutate(ym = yearmonth(date)) %>% 
+    group_by(ym, source) %>% 
+    summarise(n_articles = n()) %>% 
+    as_tsibble(index = ym, key = source)
+  
+  scale <- left_join(data_ym, x, by = c("ym", "source")) %>% 
+    rename(n_articles = n_articles.x,
+           epu_articles = n_articles.y) %>% 
+    replace_na(list(epu_articles = 0)) %>% 
+    filter(ym >= yearmonth(yearweek("2017 W30")),
+           ym <= yearmonth(yearweek("2021 W12")))
+  
+  wk <- scale %>% 
+    group_by(ym) %>% 
+    summarise(articles = sum(n_articles),
+              epu_a = sum(epu_articles))
+  
+  t1 <- wk$ym[1:round(0.8*length(wk$ym))]
+  t2 <- wk$ym[(length(t1)+1):length(wk$ym)]
+  
+  base <- scale %>% 
+    mutate(scaled = epu_articles/n_articles)
+  sd1 <- with(base, sd(scaled[scale$ym %in% t1]))
+  
+  m <- base %>% mutate(stnd = scaled/sd1) %>% 
+    group_by(ym) %>% 
+    summarise(m = mean(stnd)) %>% 
+    filter(ym %in% t2)
+  
+  epu <- base %>% 
+    mutate(stnd = scaled/sd1) %>% 
+    group_by(ym) %>% 
+    summarise(stnd1 = mean(stnd)) %>% 
+    mutate(norm = stnd1/mean(m$m)*100)
+  
+  return(epu %>% dplyr::select(ym, norm))
+}
+
+# VAR pre-processing
+mtr_cat <- function(x){
+  inp <- epu %>% 
+    mutate(yw = yearweek(yw)) %>% 
+    left_join(tvl_cat %>% filter(category == x), by = "yw") %>% 
+    left_join(gas, by = "yw") %>% 
+    left_join(contracts, by ="yw") %>% 
+    dplyr::select(yw, naive, mod, sum.verf, avg.gas, tvleth, tvlusd) %>% 
+    as_tsibble(index = yw) %>% 
+    drop_na()
+  
+  # Transform to the readable for the VAR format
+  inp_ts <- ts(inp[,2:7], frequency=52,
+               start= c(year(inp$yw[1]),week(inp$yw[1])),
+               end = c(year(inp$yw[length(inp$yw)]),week(inp$yw[length(inp$yw)])))
+  
+  mtr <- cbind(epu = inp_ts[,"mod"],
+               contracts = log(inp_ts[,"sum.verf"]),
+               gas = log(inp_ts[,"avg.gas"]),
+               tvleth = log(inp_ts[,"tvleth"]),
+               tvlusd = log(inp_ts[,"tvlusd"]))
+  return(mtr)
+}
+
+mtr_cat_daily <- function(x){
+  inp_daily <- epu_daily %>% 
+    left_join(tvl_cat_daily %>% filter(category == x), by = "date") %>% 
+    left_join(gas_daily, by = "date") %>% 
+    left_join(contracts_daily, by ="date") %>% 
+    dplyr::select(date, naive, mod, sum.verf, avg.gas, tvleth, tvlusd) %>% 
+    as_tsibble(index = date) %>% 
+    drop_na()
+  
+  inp_ts_daily <- ts(inp_daily[,2:7], frequency=365,
+                     start= c(year(inp_daily$date[1]), yday(inp_daily$date[1])),
+                     end = c(year(inp_daily$date[length(inp_daily$date)]), yday(inp_daily$date[length(inp_daily$date)])))
+  
+  mtr <- cbind(epu = inp_ts_daily[,"mod"],
+               contracts = log(inp_ts_daily[,"sum.verf"]),
+               gas = log(inp_ts_daily[,"avg.gas"]),
+               tvleth = log(inp_ts_daily[,"tvleth"]),
+               tvlusd = log(inp_ts_daily[,"tvlusd"]))
+  
+  return(mtr)
+}
+
+# IRF Plotting ----
+irf_usd <- function(irf, custom_title = "Effect of uncertainty impulse on TVL (USD)", custom_subtitle = "Modified DeFi EPU index"){
+  h <- irf[["irf"]][["epu"]] %>% as.data.frame() %>% nrow()
+  
   irf[["irf"]][["epu"]] %>% as.data.frame() %>% 
-    ggplot(aes(y = tvlusd, x = c(1:13)))+
+    ggplot(aes(y = tvlusd, x = c(1:h)))+
     geom_line(linetype = 2, colour = "black", alpha = 1, size = 0.75)+
-    geom_line(data = irf[["Lower"]][["epu"]] %>% as.data.frame(), aes(y = tvlusd, x =c(1:13)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
-    geom_line(data = irf[["Upper"]][["epu"]] %>% as.data.frame(), aes(y = tvlusd, x =c(1:13)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
+    geom_line(data = irf[["Lower"]][["epu"]] %>% as.data.frame(), aes(y = tvlusd, x =c(1:h)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
+    geom_line(data = irf[["Upper"]][["epu"]] %>% as.data.frame(), aes(y = tvlusd, x =c(1:h)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
     geom_hline(yintercept = 0, linetype = "dotted", colour = "black", alpha = 0.5)+
     coord_cartesian(ylim = c(min(irf[["Lower"]][["epu"]])-0.05,
                              max(irf[["Upper"]][["epu"]])+0.05),
-                    xlim = c(1,13))+
+                    xlim = c(1,h))+
     scale_y_continuous(breaks = seq(round(min(irf[["Lower"]][["epu"]])-0.05, 1), 
                                     round(max(irf[["Upper"]][["epu"]])+0.05, 1),
                                     by = 0.05))+
-    scale_x_continuous(breaks = seq(1, 12, by = 2))+
-    labs(subtitle = "Modified DeFi EPU index", title = "Effect of uncertainty impulse on TVL (USD)",
+    scale_x_continuous(breaks = seq(1, h-1, by = 2))+
+    labs(subtitle = custom_subtitle, title = custom_title,
          x = "Lag", y = "") +
     theme(plot.title = element_text(hjust = 0.5, vjust = 0.5),
           plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
 }
 
-irf_eth <- function(irf){
+irf_eth <- function(irf, custom_title = "Effect of uncertainty impulse on TVL (ETH)", custom_subtitle = "Modified DeFi EPU index"){
+  h <- irf[["irf"]][["epu"]] %>% as.data.frame() %>% nrow()
+  
   irf[["irf"]][["epu"]] %>% as.data.frame() %>% 
-    ggplot(aes(y = tvleth, x = c(1:13)))+
+    ggplot(aes(y = tvleth, x = c(1:h)))+
     geom_line(linetype = 2, colour = "black", alpha = 1, size = 0.75)+
-    geom_line(data = irf[["Lower"]][["epu"]] %>% as.data.frame(), aes(y = tvleth, x =c(1:13)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
-    geom_line(data = irf[["Upper"]][["epu"]] %>% as.data.frame(), aes(y = tvleth, x =c(1:13)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
+    geom_line(data = irf[["Lower"]][["epu"]] %>% as.data.frame(), aes(y = tvleth, x =c(1:h)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
+    geom_line(data = irf[["Upper"]][["epu"]] %>% as.data.frame(), aes(y = tvleth, x =c(1:h)), linetype = 2, colour = "red", alpha = 0.8, size = 0.4)+
     geom_hline(yintercept = 0, linetype = "dotted", colour = "black", alpha = 0.5)+
     coord_cartesian(ylim = c(min(irf[["Lower"]][["epu"]])-0.05,
                              max(irf[["Upper"]][["epu"]])+0.05),
-                    xlim = c(1,13))+
+                    xlim = c(1,h))+
     scale_y_continuous(breaks = seq(round(min(irf[["Lower"]][["epu"]])-0.05, 1), 
                                     round(max(irf[["Upper"]][["epu"]])+0.05, 1),
                                     by = 0.05))+
-    scale_x_continuous(breaks = seq(1, 12, by = 2))+
-    labs(subtitle = "Modified DeFi EPU index", title = "Effect of uncertainty impulse on TVL (ETH)",
+    scale_x_continuous(breaks = seq(1, h-1, by = 2))+
+    labs(subtitle = custom_subtitle, title = custom_title,
          x = "Lag", y = "") +
     theme(plot.title = element_text(hjust = 0.5, vjust = 0.5),
           plot.subtitle = element_text(hjust = 0.5, vjust = 0.5))
