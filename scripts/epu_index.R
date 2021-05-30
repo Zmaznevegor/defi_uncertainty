@@ -150,7 +150,7 @@ idx_1 <-  defi_lab %>%
   filter(!is.na(y)) %>% 
   filter(id %!in% idx$id)
 
-#idx_1 <- idx_1[createDataPartition(idx_1$y, p = 0.718, list = F),]
+# idx_1 <- idx_1[createDataPartition(idx_1$y, p = 0.718, list = F),]
 
 train_x1 <- dtm[idx_1$id,]
 train_y1 <- idx_1$y
@@ -233,7 +233,6 @@ colnames(top) <- c("Word", "Importance", "Word ", "Importance ")
 stargazer(top, summary = F, style = "qje", header = F, report = "vc*", type = "html",
             single.row = F, no.space = T, digits = 2)
 
-
 # By weights
 m <- fit1$finalModel@xmatrix[[1]]
 n <- fit1$finalModel@coef[[1]]
@@ -267,21 +266,21 @@ epu_mod <- normalize(epu_mod_yw)
 ### Plotting naive index ----
 # Annotations
 label <- data.frame(
-  yw = c(as.Date(yearweek("2018 W12")),#A
-         as.Date(yearweek("2018 W37")),#B
-         as.Date("2019-06-29"),#C
-         as.Date("2019-07-18"),#D
-         as.Date(yearweek("2019 W38")),#E
-         as.Date("2019-10-16"),#F
-         as.Date(yearweek("2019 W45")),#G
-         as.Date(yearweek("2019 W51")),#H
-         as.Date(yearweek("2020 W04")),#I
-         as.Date("2020-02-21"),#J
-         as.Date(yearweek("2020 W16")),#K
-         as.Date(yearweek("2020 W22")),#L
-         as.Date(yearweek("2020 W38")),#M
-         as.Date(yearweek("2020 W42")),#N
-         as.Date(yearweek("2021 W08"))), 
+  yw = c(as.Date(yearweek("2018 W12")), #A
+         as.Date(yearweek("2018 W37")), #B
+         as.Date("2019-06-29"), #C
+         as.Date("2019-07-18"), #D
+         as.Date(yearweek("2019 W38")), #E
+         as.Date("2019-10-16"), #F
+         as.Date(yearweek("2019 W45")), #G
+         as.Date(yearweek("2019 W51")), #H
+         as.Date(yearweek("2020 W04")), #I
+         as.Date("2020-02-21"), #J
+         as.Date(yearweek("2020 W16")), #K
+         as.Date(yearweek("2020 W22")), #L
+         as.Date(yearweek("2020 W38")), #M
+         as.Date(yearweek("2020 W42")), #N
+         as.Date(yearweek("2021 W08"))), #O
   norm = c(465, #A
            210, #B
            320, #C
@@ -295,7 +294,7 @@ label <- data.frame(
            840, #K
            225, #L
            250, #M
-           315,#N
+           315, #N
            345), #O
   label = c(paste("A", sep = "\n"),
             paste("B", sep = "\n"),
@@ -396,14 +395,6 @@ epu_base_ym <- epu_base %>%
 cor(epu_mod_ym$norm, epu_base_ym$norm)
 
 # Import data for states and categories
-epu_country <- read_excel("~/Downloads/All_Country_Data.xlsx") %>% 
-  select(-c("Sweden", "Mexico")) %>% 
-  na.omit() %>% 
-  mutate(ym = zoo::as.yearmon(paste0(Year, "-", Month))) %>% 
-  mutate(ym = yearmonth(ym)) %>% 
-  select(-c("Year", "Month")) %>% 
-  relocate(ym)
-
 epu_cat <- read_xlsx("~/Downloads/Categorical_EPU_Data.xlsx") %>% 
   na.omit() %>% 
   mutate(ym = yearmonth(openxlsx::convertToDate(Date))) %>% 
@@ -411,13 +402,6 @@ epu_cat <- read_xlsx("~/Downloads/Categorical_EPU_Data.xlsx") %>%
   select(-Date)
 
 # Combine data and fill in the missing months
-epu_state_full <- full_join(epu_base_ym, epu_mod_ym, by = "ym") %>% 
-  rename(naive = norm.x,
-         mod = norm.y) %>% 
-  full_join(epu_country %>% 
-              filter(ym > yearmonth("2017-06")), by = "ym") %>% 
-  replace_na(list(naive = 0, mod = 0))
-
 epu_cat_full <- full_join(epu_cat %>% 
               filter(ym > yearmonth("2017-06")),
               full_join(epu_base_ym, epu_mod_ym, by = "ym") %>% 
@@ -425,11 +409,6 @@ epu_cat_full <- full_join(epu_cat %>%
                        mod = norm.y), by = "ym") %>% 
   replace_na(list(naive = 0, mod = 0)) %>% 
   slice(-45)
-
-# Check orrelation for countries
-cor(epu_state_full[,5:27], epu_state_full[,2:3]) %>% 
-  as.data.frame() %>% 
-  arrange(desc(naive))
 
 # Correlation for categories
 rs <- Hmisc::rcorr(as.matrix(epu_cat_full[2:15]))
