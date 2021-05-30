@@ -20,7 +20,6 @@ from datetime import datetime
 # Define folder
 data_folder = r'/home/zmaznevegor/PycharmProjects/defi_uncertainty/data'
 
-
 # Data collection
 def collect_data_decrypt(wp):
     date = []
@@ -492,7 +491,8 @@ def collect_tvl(wp):
 
 
 # Get all the DeFi listed
-cmc = requests.get('https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project=all&resolution=history')
+api_key = 'INSERT YOUR API KEY HERE'
+cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key={api_key}&project=all&resolution=history')
 webpage = cmc.json()
 result = collect_tvl(webpage)
 
@@ -505,7 +505,7 @@ category = ['lending', 'dexes', 'derivatives', 'payments', 'assets']
 frames = []
 
 for i in category:
-    cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project=all&category={i}')
+    cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/GetHistory?api-key={api_key}&project=all&category={i}')
     webpage = cmc.json()
     result = collect_tvl(webpage)
     result['category'] = i
@@ -517,7 +517,7 @@ result.time = result.time.dt.date
 result.to_csv(data_folder + '/defi/tvl_categories.csv', index=False)
 
 # Collect lending history for Maker
-cmc = requests.get('https://data-api.defipulse.com/api/v1/defipulse/api/getLendingHistory?api-key=472f113c6538b63a9ecfaebde7c1c3ede835f8a4059539015a7ff0ec95e7&project=all&resolution=history&period=all')
+cmc = requests.get(f'https://data-api.defipulse.com/api/v1/defipulse/api/getLendingHistory?api-key={api_key}&project=all&resolution=history&period=all')
 webpage = cmc.json()
 
 time = []
